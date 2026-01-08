@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  claude-code:
+    build:
+      context: .
+      dockerfile: Dockerfile.claude-code
+    container_name: claude-code-workspace
+    stdin_open: true
+    tty: true
+    volumes:
+      # Mount your repositories
+      - /Users/jplatta/repos:/workspace/repos
+      # Mount your notes
+      - /Volumes/jwplatta/Server/Notes/my_ken:/workspace/notes
+      # Mount Claude Code config for MCP servers
+      - ./config:/root/.config/claude-code
+      # Optional: Mount SSH keys if needed for git operations
+      - ~/.ssh:/root/.ssh:ro
+      # Optional: Mount git config
+      - ~/.gitconfig:/root/.gitconfig:ro
+    environment:
+      # Set your Anthropic API key
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /workspace
+
+  codex:
+    build:
+      context: .
+      dockerfile: Dockerfile.codex
+    container_name: codex-workspace
+    stdin_open: true
+    tty: true
+    volumes:
+      # Mount your repositories
+      - /Users/jplatta/repos:/workspace/repos
+      # Mount your notes
+      - /Volumes/jwplatta/Server/Notes/my_ken:/workspace/notes
+      # Mount Codex config
+      - ./config/codex:/root/.config/codex
+      # Optional: Mount SSH keys if needed for git operations
+      - ~/.ssh:/root/.ssh:ro
+      # Optional: Mount git config
+      - ~/.gitconfig:/root/.gitconfig:ro
+    environment:
+      # Set your Anthropic API key for Codex
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # Optional: OpenAI API key if using OpenAI models
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /workspace
+
+  copilot:
+    build:
+      context: .
+      dockerfile: Dockerfile.copilot
+    container_name: copilot-workspace
+    stdin_open: true
+    tty: true
+    volumes:
+      # Mount your repositories
+      - /Users/jplatta/repos:/workspace/repos
+      # Mount your notes
+      - /Volumes/jwplatta/Server/Notes/my_ken:/workspace/notes
+      # Mount GitHub Copilot config
+      - ./config/github-copilot:/root/.config/github-copilot
+      # Optional: Mount SSH keys if needed for git operations
+      - ~/.ssh:/root/.ssh:ro
+      # Optional: Mount git config
+      - ~/.gitconfig:/root/.gitconfig:ro
+    environment:
+      # GitHub token for Copilot authentication (fine-grained PAT with "Copilot Requests" permission)
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GH_TOKEN=${GITHUB_TOKEN}
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /workspace

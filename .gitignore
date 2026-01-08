@@ -1,0 +1,9 @@
+# Environment variables with API keys
+.env
+
+# Runtime config directories (may contain tokens/auth)
+config/
+!config/.gitkeep
+
+# MCP server config example is tracked
+!config/mcp_servers.json.example
