@@ -2,8 +2,9 @@
 .env
 
 # Runtime config directories (may contain tokens/auth)
-config/
+config/*
 !config/.gitkeep
 
-# MCP server config example is tracked
 !config/mcp_servers.json.example
+!config/codex
+!config/claude
