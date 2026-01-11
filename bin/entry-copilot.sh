@@ -10,6 +10,4 @@ fi
 
 mkdir -p /root/.copilot
 
-envsubst < /cubicle/repos/agent-cubicle/config/copilot/mcp-config.json.template > /root/.copilot/mcp-config.json
-
 tail -f /dev/null
