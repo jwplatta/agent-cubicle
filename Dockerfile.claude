@@ -10,17 +10,16 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Claude Code globally
 RUN npm install -g @anthropic-ai/claude-code
 
-# Create workspace directory
+# Install obsidian-mcp globally (builds from the mounted source)
+# We'll actually install this at runtime since we need the mounted code
+
 RUN mkdir -p /workspace
 
-# Set working directory
 WORKDIR /workspace
 
-# Create directory for MCP servers configuration
-RUN mkdir -p /root/.config/claude-code
+COPY bin/entry-claude.sh /entry.sh
+RUN chmod +x /entry.sh
 
-# Keep container running and start Claude Code
-CMD ["claude-code"]
+CMD ["/entry.sh"]
