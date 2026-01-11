@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bundle exec rspec:*)",
+      "Bash(bundle exec rubocop:*)",
+      "Bash(git checkout:*)",
+      "TodoWrite",
+      "WebFetch",
+      "WebSearch",
+      "Grep",
+      "Glob",
+      "LS",
+      "MultiEdit",
+      "Read",
+      "Task"
+    ],
+    "deny": [],
+    "additionalDirectories": []
+  },
+  "enableAllProjectMcpServers": true,
+  "statusLine": {
+    "type": "command",
+    "command": "input=$(cat); current_dir=\"$(echo \"$input\" | jq -r '.workspace.current_dir')\"; model=\"$(echo \"$input\" | jq -r '.model.display_name')\"; style=\"$(echo \"$input\" | jq -r '.output_style.name')\"; git_branch=\"$(cd \"$current_dir\" 2>/dev/null && git branch --show-current 2>/dev/null || echo '')\"; git_status=\"$(cd \"$current_dir\" 2>/dev/null && git status --porcelain 2>/dev/null | wc -l | tr -d ' ' || echo '0')\"; dir_name=\"$(basename \"$current_dir\")\"; printf \"\\033[2m%s\\033[0m\" \"$model\"; if [ \"$style\" != \"default\" ]; then printf \"\\033[2m (%s)\\033[0m\" \"$style\"; fi; printf \"\\033[2m in \\033[0m\"; printf \"\\033[2m%s\\033[0m\" \"$dir_name\"; if [ -n \"$git_branch\" ]; then printf \"\\033[2m on \\033[0m\"; printf \"\\033[2m%s\\033[0m\" \"$git_branch\"; if [ \"$git_status\" != \"0\" ]; then printf \"\\033[2m [%s changes]\\033[0m\" \"$git_status\"; fi; fi"
+  },
+  "enabledPlugins": {
+    "example-skills@anthropic-agent-skills": true,
+    "document-skills@anthropic-agent-skills": true,
+    "template-plugin@jwplatta-claude-tools": false,
+    "obsidian-plugin-builder@jwplatta-claude-tools": true,
+    "rubyist@jwplatta-claude-tools": true,
+    "pythonic@jwplatta-claude-tools": true
+  },
+  "feedbackSurveyState": {
+    "lastShownTime": 1753981965869
+  }
+}

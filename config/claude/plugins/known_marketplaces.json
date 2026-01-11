@@ -1,0 +1,27 @@
+{
+  "anthropic-agent-skills": {
+    "source": {
+      "source": "git",
+      "url": "https://github.com/anthropics/skills.git"
+    },
+    "installLocation": "/Users/jplatta/.claude/plugins/marketplaces/anthropic-agent-skills",
+    "lastUpdated": "2026-01-08T18:45:55.197Z"
+  },
+  "jwplatta-claude-tools": {
+    "source": {
+      "source": "git",
+      "url": "https://github.com/jwplatta/prompt-library.git"
+    },
+    "installLocation": "/Users/jplatta/.claude/plugins/marketplaces/jwplatta-claude-tools",
+    "lastUpdated": "2026-01-09T19:35:38.916Z",
+    "autoUpdate": true
+  },
+  "claude-plugins-official": {
+    "source": {
+      "source": "github",
+      "repo": "anthropics/claude-plugins-official"
+    },
+    "installLocation": "/root/.claude/plugins/marketplaces/claude-plugins-official",
+    "lastUpdated": "2026-01-09T19:33:17.746Z"
+  }
+}
