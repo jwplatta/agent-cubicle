@@ -8,6 +8,6 @@ if [ -d "/obsidian-mcp" ]; then
   cd /cubicle
 fi
 
-mkdir -p /root/.copilot
+mkdir -p /root/.copilot/agents
 
 tail -f /dev/null
