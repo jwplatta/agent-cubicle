@@ -68,6 +68,7 @@ services:
     tty: true
     volumes:
       - ./config/copilot:/root/.copilot
+      - ./config/config/github-copilot:/root/.config/github-copilot
       - /Users/jplatta/repos:/cubicle/repos
       - /Volumes/Server/Notes/my_ken:/cubicle/notes
       - /Users/jplatta/.config/gh:/root/.config/gh
@@ -79,7 +80,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_TOKEN=${COPILOT_TOKEN}
       - TODOIST_TOKEN=${TODOIST_TOKEN}
     deploy:
       resources:
