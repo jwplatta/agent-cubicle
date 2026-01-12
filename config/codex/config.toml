@@ -33,11 +33,15 @@ warnings = true
 
 [mcp_servers.github]
 url = "https://api.githubcopilot.com/mcp/"
-bearer_token_env_var = "GITHUB_PAT"
+bearer_token_env_var = "GITHUB_TOKEN"
 
 [mcp_servers.obsidian-mcp]
 command = "node"
-args = ["/Users/jplatta/repos/second_brain/obsidian-mcp/build/index.js"]
+args = ["/obsidian-mcp/build/index.js"]
+
+[mcp_servers.todoist]
+url = "https://ai.todoist.net/mcp"
+bearer_token_env_var = "TODOIST_TOKEN"
 
 [projects."/Users/jplatta/repos/options_trader"]
 trust_level = "trusted"
@@ -46,4 +50,7 @@ trust_level = "trusted"
 trust_level = "trusted"
 
 [projects."/Users/jplatta/repos/agent-cubicle"]
+trust_level = "trusted"
+
+[projects."/cubicle/repos/ml_gym"]
 trust_level = "trusted"
