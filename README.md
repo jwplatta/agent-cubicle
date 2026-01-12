@@ -1,34 +1,39 @@
-# Agent Cubicle
+# Cubicle
 
-My sandboxed Docker environment for running AI coding agents with full autonomy.
+This is my personal, sandboxed Docker setup for running AI coding agents with full autonomy.
 
 ## Why I Built This
 
-I wanted to run AI coding agents (Claude Code, Codex, GitHub Copilot CLI) in "dangerously allow everything" mode without worrying about them breaking my host system. These containers let me give the agents full permissions to modify code, run commands, and work completely autonomously while keeping my main system safe.
+- I want one place to store and version my configs, shared context, and examples.
+- I want to learn what these agents can and cannot do for me.
+- I want to run agents in “allow everything” mode without risking my host system.
 
-## What I'm Running
+## What It Runs
 
-- **Claude Code** - Running with complete autonomy, no safety rails
-- **Codex** - Full unrestricted access to do whatever it needs
-- **GitHub Copilot CLI** - Fully autonomous mode
+Agents:
+- Claude Code
+- Codex
+- GitHub Copilot CLI
 
 Each agent gets:
-- 8GB memory to do real work
-- Access to my repos and notes (mounted from host)
-- Complete permissions inside their container
-- Shared workspace so they can all work on the same code
-
-## The Setup
-
-Each agent has its own isolated container where I can let it run wild. They all share access to my repositories and notes, so I can switch between agents or have them work on the same projects. No safety rails, no restrictions - just pure autonomous coding assistance in a safe sandbox.
+- 8GB memory
+- Access to my repos and notes (mounted from the host)
+- Full permissions inside its container
+- A shared workspace so they can work on the same code
 
 ## Quick Start
 
 ```bash
 cp .env.example .env
-# Add your API keys
+# add your API keys
 docker-compose up -d
-docker exec -it claude-code-workspace claude-code
+docker exec -it claude-cubicle claude
 ```
 
-See [DOCKER_SETUP.md](DOCKER_SETUP.md) for detailed instructions.
+See `DOCKER_SETUP.md` for the detailed setup.
+
+## Next Steps (for me)
+
+- Build a workflow where agents pull tasks from Todoist, complete them, and open a pull request. Document that in `CLAUDE.md` and `AGENTS.md`.
+- Build a CLI to run a specific agent in a specific repo.
+- Test whether agents can collaborate on an options trading dashboard in Streamlit, using my matplotlib prototypes.
