@@ -1,10 +1,8 @@
-# BASE AGENT
-
 ## Workflow
 
 1. **Setup**: Create feature branch from main. (see [Git Branch Management](#git-branch-management))
-2. If user prompt provider, break prompt down into tasks.
-3. If no prompt provided, then select next task from Todoist (see [Task Selection](#task-selection))
+2. If user prompt provided, break prompt down into tasks.
+3. If user prompt is similar to "next task", then select next task from Todoist (see [Task Selection](#task-selection))
 4. **Implement**: Follow repo-specific guidelines (check README, CONTRIBUTING, CLAUDE.md)
    1. Write todos and notes and context to Obsidian (see [Knowledge Management](#knowledge-management))
    2. Reference repo guidelines for language-specific standards

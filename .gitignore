@@ -3,6 +3,8 @@
 
 config/*
 
+!config/shared
+
 # Exclude all Claude config except these files
 !config/claude/agents
 !config/claude/commands
