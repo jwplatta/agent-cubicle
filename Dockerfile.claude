@@ -15,10 +15,6 @@ RUN npm install -g @anthropic-ai/claude-code
 # Install obsidian-mcp globally (builds from the mounted source)
 # We'll actually install this at runtime since we need the mounted code
 
-RUN mkdir -p /workspace
-
-WORKDIR /workspace
-
 COPY bin/entry-claude.sh /entry.sh
 RUN chmod +x /entry.sh
 
