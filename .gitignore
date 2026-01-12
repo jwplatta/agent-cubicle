@@ -9,7 +9,6 @@ config/*
 !config/claude/hooks
 !config/claude/ide
 !config/claude/plans
-!config/claude/plugins/config.json
 !config/claude/skills
 !config/claude/settings.json
 !config/claude/config.json
