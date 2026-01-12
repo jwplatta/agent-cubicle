@@ -1,92 +1,90 @@
-version: '3.8'
-
 services:
-  claude-code:
+  claude:
     build:
       context: .
-      dockerfile: Dockerfile.claude-code
-    container_name: claude-code-workspace
+      dockerfile: Dockerfile.claude
+    container_name: claude-cubicle
     stdin_open: true
     tty: true
     volumes:
-      # Mount your repositories
-      - /Users/jplatta/repos:/workspace/repos
-      # Mount your notes
-      - /Volumes/jwplatta/Server/Notes/my_ken:/workspace/notes
-      # Mount Claude Code config for MCP servers
-      - ./config:/root/.config/claude-code
-      # Optional: Mount SSH keys if needed for git operations
+      - ./config/claude:/root/.claude
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - ./config/obsidian-mcp-vaults.json:/root/.config/obsidian-mcp/vaults.json
+      - /Users/jplatta/.config/gh:/root/.config/gh
+      - /Users/jplatta/.config/obsidian-mcp:/root/.config/obsidian-mcp
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
       - ~/.ssh:/root/.ssh:ro
-      # Optional: Mount git config
       - ~/.gitconfig:/root/.gitconfig:ro
     environment:
-      # Set your Anthropic API key
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     deploy:
       resources:
         limits:
           memory: 8G
         reservations:
           memory: 4G
-    working_dir: /workspace
+    working_dir: /cubicle
 
   codex:
     build:
       context: .
       dockerfile: Dockerfile.codex
-    container_name: codex-workspace
+    container_name: codex-cubicle
     stdin_open: true
     tty: true
     volumes:
-      # Mount your repositories
-      - /Users/jplatta/repos:/workspace/repos
-      # Mount your notes
-      - /Volumes/jwplatta/Server/Notes/my_ken:/workspace/notes
-      # Mount Codex config
-      - ./config/codex:/root/.config/codex
-      # Optional: Mount SSH keys if needed for git operations
+      - ./config/codex:/root/.codex
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - /Users/jplatta/.config/gh:/root/.config/gh
+      - /Users/jplatta/.config/obsidian-mcp:/root/.config/obsidian-mcp
+      - ./config/obsidian-mcp-vaults.json:/root/.config/obsidian-mcp/vaults.json
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
       - ~/.ssh:/root/.ssh:ro
-      # Optional: Mount git config
       - ~/.gitconfig:/root/.gitconfig:ro
     environment:
-      # Set your Anthropic API key for Codex
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      # Optional: OpenAI API key if using OpenAI models
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     deploy:
       resources:
         limits:
           memory: 8G
         reservations:
           memory: 4G
-    working_dir: /workspace
+    working_dir: /cubicle
 
   copilot:
     build:
       context: .
       dockerfile: Dockerfile.copilot
-    container_name: copilot-workspace
+    container_name: copilot-cubicle
     stdin_open: true
     tty: true
     volumes:
-      # Mount your repositories
-      - /Users/jplatta/repos:/workspace/repos
-      # Mount your notes
-      - /Volumes/jwplatta/Server/Notes/my_ken:/workspace/notes
-      # Mount GitHub Copilot config
-      - ./config/github-copilot:/root/.config/github-copilot
-      # Optional: Mount SSH keys if needed for git operations
+      - ./config/copilot:/root/.copilot
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - /Users/jplatta/.config/gh:/root/.config/gh
+      - /Users/jplatta/.config/obsidian-mcp:/root/.config/obsidian-mcp
+      - ./config/obsidian-mcp-vaults.json:/root/.config/obsidian-mcp/vaults.json
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
       - ~/.ssh:/root/.ssh:ro
-      # Optional: Mount git config
       - ~/.gitconfig:/root/.gitconfig:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      # GitHub token for Copilot authentication (fine-grained PAT with "Copilot Requests" permission)
       - GITHUB_TOKEN=${GITHUB_TOKEN}
-      - GH_TOKEN=${GITHUB_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
     deploy:
       resources:
         limits:
           memory: 8G
         reservations:
           memory: 4G
-    working_dir: /workspace
+    working_dir: /cubicle
