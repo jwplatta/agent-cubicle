@@ -5,6 +5,7 @@ This is my personal, sandboxed Docker setup for running AI coding agents with fu
 ## Why I Built This
 
 - I want one place to store and version my configs, shared context, and examples.
+- I want to be able to iterate quickly on commands, skills, prompts across multiple models.
 - I want to learn what these agents can and cannot do for me.
 - I want to run agents in “allow everything” mode without risking my host system.
 
@@ -37,3 +38,4 @@ See `DOCKER_SETUP.md` for the detailed setup.
 - Build a workflow where agents pull tasks from Todoist, complete them, and open a pull request. Document that in `CLAUDE.md` and `AGENTS.md`.
 - Build a CLI to run a specific agent in a specific repo.
 - Test whether agents can collaborate on an options trading dashboard in Streamlit, using my matplotlib prototypes.
+- Delegating to cloud agents
