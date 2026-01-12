@@ -1,10 +1,26 @@
 # Environment variables with API keys
 .env
 
-# Runtime config directories (may contain tokens/auth)
 config/*
-!config/.gitkeep
 
-!config/mcp_servers.json.example
-!config/codex
-!config/claude
+# Exclude all Claude config except these files
+!config/claude/agents
+!config/claude/commands
+!config/claude/hooks
+!config/claude/ide
+!config/claude/plans
+!config/claude/plugins/config.json
+!config/claude/skills
+!config/claude/settings.json
+!config/claude/config.json
+!config/claude/CLAUDE.md
+
+# Exclude all Codex config except these files
+!config/codex/AGENTS.md
+!config/codex/skills
+!config/codex/config.toml
+
+# Exclude GitHub Copilot config except this file
+!config/copilot/mcp-config.json.template
+
+tmp/
