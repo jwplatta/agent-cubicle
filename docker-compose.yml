@@ -7,7 +7,7 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      - ./config/claude:/home/claude/.claude
+      - ./config/claude/:/home/claude/.claude
       - ./config/shared/BASE_AGENT.md:/home/claude/.claude/CLAUDE.md
       - /Users/jplatta/repos:/cubicle/repos
       - /Volumes/Server/Notes/my_ken:/cubicle/notes
@@ -15,13 +15,12 @@ services:
       - /Users/jplatta/.config/gh:/home/claude/.config/gh
       - /Users/jplatta/.config/obsidian-mcp:/home/claude/.config/obsidian-mcp
       - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
-      - ~/.ssh:/home/claude/.ssh:ro
-      - ~/.gitconfig:/home/claude/.gitconfig:ro
+      - ./config/ssh/id_ed25519:/home/claude/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/claude/.gitconfig.host:ro
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - TODOIST_TOKEN=${TODOIST_TOKEN}
       - GIT_TERMINAL_PROMPT=0
-      - GIT_CONFIG_GLOBAL=/home/claude/.gitconfig-local
     extra_hosts:
       - "host.docker.internal:host-gateway"
     deploy:
@@ -47,8 +46,8 @@ services:
       - /Users/jplatta/.config/obsidian-mcp:/home/codex/.config/obsidian-mcp
       - ./config/obsidian-mcp-vaults.json:/home/codex/.config/obsidian-mcp/vaults.json
       - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
-      - ~/.ssh:/home/codex/.ssh:ro
-      - ~/.gitconfig:/home/codex/.gitconfig:ro
+      - ./config/ssh/id_ed25519:/home/codex/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/codex/.gitconfig.host:ro
       - ./config/shared/BASE_AGENT.md:/home/codex/.codex/AGENTS.md
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
@@ -72,15 +71,15 @@ services:
     tty: true
     volumes:
       - ./config/copilot:/home/copilot/.copilot
-      - ./config/config/github-copilot:/home/copilot/.config/github-copilot
+      - ./config/github-copilot:/home/copilot/.config/github-copilot
       - /Users/jplatta/repos:/cubicle/repos
       - /Volumes/Server/Notes/my_ken:/cubicle/notes
       - /Users/jplatta/.config/gh:/home/copilot/.config/gh
       - /Users/jplatta/.config/obsidian-mcp:/home/copilot/.config/obsidian-mcp
       - ./config/obsidian-mcp-vaults.json:/home/copilot/.config/obsidian-mcp/vaults.json
       - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
-      - ~/.ssh:/home/copilot/.ssh:ro
-      - ~/.gitconfig:/home/copilot/.gitconfig:ro
+      - ./config/ssh/id_ed25519:/home/copilot/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/copilot/.gitconfig.host:ro
       - ./config/shared/BASE_AGENT.md:/home/copilot/.copilot/agents/BASE_AGENT.md
     extra_hosts:
       - "host.docker.internal:host-gateway"
