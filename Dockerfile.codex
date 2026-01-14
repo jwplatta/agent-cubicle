@@ -9,6 +9,14 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
+# Install GitHub CLI from releases
+RUN ARCH=$(dpkg --print-architecture) \
+    && GH_VERSION="2.63.2" \
+    && curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${ARCH}.tar.gz" -o gh.tar.gz \
+    && tar -xzf gh.tar.gz \
+    && mv "gh_${GH_VERSION}_linux_${ARCH}/bin/gh" /usr/local/bin/ \
+    && rm -rf gh.tar.gz "gh_${GH_VERSION}_linux_${ARCH}"
+
 # Create non-root user (remove default node user first)
 # Using UID 502 and GID 20 to match host macOS user for volume mount permissions
 RUN userdel -r node 2>/dev/null || true && \
@@ -24,4 +32,5 @@ RUN chmod +x /entry.sh && chown codex:codex /entry.sh
 
 USER codex
 
-CMD ["/entry.sh"]
+ENTRYPOINT ["/entry.sh"]
+CMD []
