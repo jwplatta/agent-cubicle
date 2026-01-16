@@ -1,0 +1,21 @@
+FROM agent-cubicle-codex-base:latest
+
+USER root
+
+# Install Ruby (latest available from Debian Bullseye repos)
+RUN apt-get update && apt-get install -y \
+    ruby \
+    ruby-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install bundler
+RUN gem install bundler
+
+# Copy entry script
+COPY bin/entry-ruby.sh /entry.sh
+RUN chmod +x /entry.sh && chown codex:codex /entry.sh
+
+USER codex
+
+ENTRYPOINT ["/entry.sh"]
+CMD []
