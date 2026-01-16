@@ -93,3 +93,202 @@ services:
         reservations:
           memory: 4G
     working_dir: /cubicle
+
+  # Language-specific Claude containers
+  claude-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.claude-python
+    container_name: claude-python-cubicle
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config/claude/:/home/claude/.claude
+      - ./config/shared/BASE_AGENT.md:/home/claude/.claude/CLAUDE.md
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - ./config/obsidian-mcp-vaults.json:/home/claude/.config/obsidian-mcp/vaults.json
+      - /Users/jplatta/.config/gh:/home/claude/.config/gh
+      - /Users/jplatta/.config/obsidian-mcp:/home/claude/.config/obsidian-mcp
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
+      - ./config/ssh/id_ed25519:/home/claude/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/claude/.gitconfig.host:ro
+      - ./bin/entry-base.sh:/entry-base.sh:ro
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+      - GIT_TERMINAL_PROMPT=0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /cubicle
+
+  claude-ruby:
+    build:
+      context: .
+      dockerfile: Dockerfile.claude-ruby
+    container_name: claude-ruby-cubicle
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config/claude/:/home/claude/.claude
+      - ./config/shared/BASE_AGENT.md:/home/claude/.claude/CLAUDE.md
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - ./config/obsidian-mcp-vaults.json:/home/claude/.config/obsidian-mcp/vaults.json
+      - /Users/jplatta/.config/gh:/home/claude/.config/gh
+      - /Users/jplatta/.config/obsidian-mcp:/home/claude/.config/obsidian-mcp
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
+      - ./config/ssh/id_ed25519:/home/claude/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/claude/.gitconfig.host:ro
+      - ./bin/entry-base.sh:/entry-base.sh:ro
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+      - GIT_TERMINAL_PROMPT=0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /cubicle
+
+  # Language-specific Codex containers
+  codex-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.codex-python
+    container_name: codex-python-cubicle
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config/codex:/home/codex/.codex
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - /Users/jplatta/.config/gh:/home/codex/.config/gh
+      - /Users/jplatta/.config/obsidian-mcp:/home/codex/.config/obsidian-mcp
+      - ./config/obsidian-mcp-vaults.json:/home/codex/.config/obsidian-mcp/vaults.json
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
+      - ./config/ssh/id_ed25519:/home/codex/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/codex/.gitconfig.host:ro
+      - ./config/shared/BASE_AGENT.md:/home/codex/.codex/AGENTS.md
+      - ./bin/entry-base.sh:/entry-base.sh:ro
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /cubicle
+
+  codex-ruby:
+    build:
+      context: .
+      dockerfile: Dockerfile.codex-ruby
+    container_name: codex-ruby-cubicle
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config/codex:/home/codex/.codex
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - /Users/jplatta/.config/gh:/home/codex/.config/gh
+      - /Users/jplatta/.config/obsidian-mcp:/home/codex/.config/obsidian-mcp
+      - ./config/obsidian-mcp-vaults.json:/home/codex/.config/obsidian-mcp/vaults.json
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
+      - ./config/ssh/id_ed25519:/home/codex/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/codex/.gitconfig.host:ro
+      - ./config/shared/BASE_AGENT.md:/home/codex/.codex/AGENTS.md
+      - ./bin/entry-base.sh:/entry-base.sh:ro
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /cubicle
+
+  # Language-specific Copilot containers
+  copilot-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.copilot-python
+    container_name: copilot-python-cubicle
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config/copilot:/home/copilot/.copilot
+      - ./config/github-copilot:/home/copilot/.config/github-copilot
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - /Users/jplatta/.config/gh:/home/copilot/.config/gh
+      - /Users/jplatta/.config/obsidian-mcp:/home/copilot/.config/obsidian-mcp
+      - ./config/obsidian-mcp-vaults.json:/home/copilot/.config/obsidian-mcp/vaults.json
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
+      - ./config/ssh/id_ed25519:/home/copilot/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/copilot/.gitconfig.host:ro
+      - ./config/shared/BASE_AGENT.md:/home/copilot/.copilot/agents/BASE_AGENT.md
+      - ./bin/entry-base.sh:/entry-base.sh:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - GITHUB_TOKEN=${COPILOT_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /cubicle
+
+  copilot-ruby:
+    build:
+      context: .
+      dockerfile: Dockerfile.copilot-ruby
+    container_name: copilot-ruby-cubicle
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config/copilot:/home/copilot/.copilot
+      - ./config/github-copilot:/home/copilot/.config/github-copilot
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - /Users/jplatta/.config/gh:/home/copilot/.config/gh
+      - /Users/jplatta/.config/obsidian-mcp:/home/copilot/.config/obsidian-mcp
+      - ./config/obsidian-mcp-vaults.json:/home/copilot/.config/obsidian-mcp/vaults.json
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
+      - ./config/ssh/id_ed25519:/home/copilot/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/copilot/.gitconfig.host:ro
+      - ./config/shared/BASE_AGENT.md:/home/copilot/.copilot/agents/BASE_AGENT.md
+      - ./bin/entry-base.sh:/entry-base.sh:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - GITHUB_TOKEN=${COPILOT_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /cubicle
