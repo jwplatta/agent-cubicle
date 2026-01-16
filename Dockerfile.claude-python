@@ -1,0 +1,24 @@
+FROM agent-cubicle-claude-base:latest
+
+USER root
+
+# Install Python 3.x (latest available from Debian Bullseye repos)
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy entry script
+COPY bin/entry-python.sh /entry.sh
+RUN chmod +x /entry.sh && chown claude:claude /entry.sh
+
+USER claude
+
+# Install uv (modern Python package manager) as claude user
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Make uv available in user PATH
+ENV PATH="/home/claude/.cargo/bin:/home/claude/.local/bin:${PATH}"
+
+CMD ["/entry.sh"]

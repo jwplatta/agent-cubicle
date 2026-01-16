@@ -1,0 +1,30 @@
+FROM node:20-bullseye
+
+# Install system dependencies (no language-specific runtimes)
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    vim \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install GitHub CLI from releases
+RUN ARCH=$(dpkg --print-architecture) \
+    && GH_VERSION="2.63.2" \
+    && curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${ARCH}.tar.gz" -o gh.tar.gz \
+    && tar -xzf gh.tar.gz \
+    && mv "gh_${GH_VERSION}_linux_${ARCH}/bin/gh" /usr/local/bin/ \
+    && rm -rf gh.tar.gz "gh_${GH_VERSION}_linux_${ARCH}"
+
+# Create non-root user (remove default node user first)
+# Using UID 502 and GID 20 to match host macOS user for volume mount permissions
+RUN userdel -r node 2>/dev/null || true && \
+    groupadd -g 20 claude 2>/dev/null || groupmod -n claude $(getent group 20 | cut -d: -f1) && \
+    useradd -u 502 -g 20 -m -s /bin/bash claude && \
+    mkdir -p /home/claude/.claude /home/claude/.config /home/claude/.ssh && \
+    chown -R claude:claude /home/claude
+
+# Install Claude Code CLI
+RUN npm install -g @anthropic-ai/claude-code
+
+USER claude
