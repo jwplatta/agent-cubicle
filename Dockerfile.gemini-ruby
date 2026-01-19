@@ -1,4 +1,4 @@
-FROM gemini-base:latest
+FROM agent-cubicle-gemini-base:latest
 
 USER root
 
