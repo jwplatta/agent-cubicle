@@ -1,34 +1,12 @@
-FROM node:20-bullseye
+FROM agent-cubicle-codex-base:latest
 
-RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    vim \
-    build-essential \
-    python3 \
-    python3-pip \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install GitHub CLI from releases
-RUN ARCH=$(dpkg --print-architecture) \
-    && GH_VERSION="2.63.2" \
-    && curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${ARCH}.tar.gz" -o gh.tar.gz \
-    && tar -xzf gh.tar.gz \
-    && mv "gh_${GH_VERSION}_linux_${ARCH}/bin/gh" /usr/local/bin/ \
-    && rm -rf gh.tar.gz "gh_${GH_VERSION}_linux_${ARCH}"
-
-# Create non-root user (remove default node user first)
-# Using UID 502 and GID 20 to match host macOS user for volume mount permissions
-RUN userdel -r node 2>/dev/null || true && \
-    groupadd -g 20 codex 2>/dev/null || groupmod -n codex $(getent group 20 | cut -d: -f1) && \
-    useradd -u 502 -g 20 -m -s /bin/bash codex && \
-    mkdir -p /home/codex/.codex /home/codex/.config /home/codex/.ssh && \
-    chown -R codex:codex /home/codex
+USER root
 
 RUN npm install -g @openai/codex@0.80.0
 
 COPY bin/entry-codex.sh /entry.sh
 RUN chmod +x /entry.sh && chown codex:codex /entry.sh
+RUN chown codex:codex /home/codex
 
 USER codex
 
