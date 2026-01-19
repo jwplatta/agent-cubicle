@@ -1,5 +1,35 @@
 services:
+  claude-base:
+    build:
+      context: .
+      dockerfile: Dockerfile.claude-base
+    image: agent-cubicle-claude-base:latest
+    container_name: claude-base-cubicle
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config/claude/:/home/claude/.claude
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - /Users/jplatta/.config/gh:/home/claude/.config/gh
+      - ./config/ssh/id_ed25519:/home/claude/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/claude/.gitconfig.host:ro
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+      - GIT_TERMINAL_PROMPT=0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /cubicle
   claude:
+    depends_on:
+      - claude-base
     build:
       context: .
       dockerfile: Dockerfile.claude
@@ -31,7 +61,37 @@ services:
           memory: 4G
     working_dir: /cubicle
 
+  codex-base:
+    build:
+      context: .
+      dockerfile: Dockerfile.codex-base
+    image: agent-cubicle-codex-base:latest
+    container_name: codex-base-cubicle
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config/codex/:/home/codex/.codex
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - /Users/jplatta/.config/gh:/home/codex/.config/gh
+      - ./config/ssh/id_ed25519:/home/codex/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/codex/.gitconfig.host:ro
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+      - GIT_TERMINAL_PROMPT=0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /cubicle
   codex:
+    depends_on:
+      - codex-base
     build:
       context: .
       dockerfile: Dockerfile.codex
@@ -62,7 +122,37 @@ services:
           memory: 4G
     working_dir: /cubicle
 
+  copilot-base:
+    build:
+      context: .
+      dockerfile: Dockerfile.copilot-base
+    image: agent-cubicle-copilot-base:latest
+    container_name: copilot-base-cubicle
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config/copilot/:/home/copilot/.copilot
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - /Users/jplatta/.config/gh:/home/copilot/.config/gh
+      - ./config/ssh/id_ed25519:/home/copilot/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/copilot/.gitconfig.host:ro
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+      - GIT_TERMINAL_PROMPT=0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /cubicle
   copilot:
+    depends_on:
+      - copilot-base
     build:
       context: .
       dockerfile: Dockerfile.copilot
@@ -96,6 +186,8 @@ services:
 
   # Language-specific Claude containers
   claude-python:
+    depends_on:
+      - claude-base
     build:
       context: .
       dockerfile: Dockerfile.claude-python
@@ -129,6 +221,8 @@ services:
     working_dir: /cubicle
 
   claude-ruby:
+    depends_on:
+      - claude-base
     build:
       context: .
       dockerfile: Dockerfile.claude-ruby
@@ -163,6 +257,8 @@ services:
 
   # Language-specific Codex containers
   codex-python:
+    depends_on:
+      - codex-base
     build:
       context: .
       dockerfile: Dockerfile.codex-python
@@ -195,6 +291,8 @@ services:
     working_dir: /cubicle
 
   codex-ruby:
+    depends_on:
+      - codex-base
     build:
       context: .
       dockerfile: Dockerfile.codex-ruby
@@ -228,6 +326,8 @@ services:
 
   # Language-specific Copilot containers
   copilot-python:
+    depends_on:
+      - copilot-base
     build:
       context: .
       dockerfile: Dockerfile.copilot-python
@@ -261,6 +361,8 @@ services:
     working_dir: /cubicle
 
   copilot-ruby:
+    depends_on:
+      - copilot-base
     build:
       context: .
       dockerfile: Dockerfile.copilot-ruby
@@ -292,3 +394,129 @@ services:
         reservations:
           memory: 4G
     working_dir: /cubicle
+
+  gemini-base:
+    build:
+      context: .
+      dockerfile: Dockerfile.gemini-base
+    image: agent-cubicle-gemini-base:latest
+    container_name: gemini-base-cubicle
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config/gemini/:/home/gemini/.gemini
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - /Users/jplatta/.config/gh:/home/gemini/.config/gh
+      - ./config/ssh/id_ed25519:/home/gemini/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/gemini/.gitconfig.host:ro
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+      - GIT_TERMINAL_PROMPT=0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /cubicle
+
+  gemini:
+    depends_on:
+      - gemini-base
+    build:
+      context: .
+      dockerfile: Dockerfile.gemini
+    container_name: gemini-cubicle
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config/gemini/:/home/gemini/.gemini
+      - ./config/shared/BASE_AGENT.md:/home/gemini/.gemini/GEMINI.md
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - /Users/jplatta/.config/gh:/home/gemini/.config/gh
+      - ./config/ssh/id_ed25519:/home/gemini/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/gemini/.gitconfig.host:ro
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+      - GIT_TERMINAL_PROMPT=0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /cubicle
+
+  # Language-specific Gemini containers
+  gemini-python:
+    depends_on:
+      - gemini-base
+    build:
+      context: .
+      dockerfile: Dockerfile.gemini-python
+    container_name: gemini-python-cubicle
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config/gemini/:/home/gemini/.gemini
+      - ./config/shared/BASE_AGENT.md:/home/gemini/.gemini/GEMINI.md
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - /Users/jplatta/.config/gh:/home/gemini/.config/gh
+      - ./config/ssh/id_ed25519:/home/gemini/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/gemini/.gitconfig.host:ro
+      - ./bin/entry-base.sh:/entry-base.sh:ro
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+      - GIT_TERMINAL_PROMPT=0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /cubicle
+
+  gemini-ruby:
+    depends_on:
+      - gemini-base
+    build:
+      context: .
+      dockerfile: Dockerfile.gemini-ruby
+    container_name: gemini-ruby-cubicle
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config/gemini/:/home/gemini/.gemini
+      - ./config/shared/BASE_AGENT.md:/home/gemini/.gemini/GEMINI.md
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - /Users/jplatta/.config/gh:/home/gemini/.config/gh
+      - ./config/ssh/id_ed25519:/home/gemini/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/gemini/.gitconfig.host:ro
+      - ./bin/entry-base.sh:/entry-base.sh:ro
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+      - GIT_TERMINAL_PROMPT=0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /cubicle
+
