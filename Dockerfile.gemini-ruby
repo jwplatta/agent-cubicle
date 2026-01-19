@@ -1,0 +1,21 @@
+FROM gemini-base:latest
+
+USER root
+
+# Install Ruby (latest available from Debian Bullseye repos)
+RUN apt-get update && apt-get install -y \
+    ruby \
+    ruby-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install bundler
+RUN gem install bundler
+
+# Copy entry scripts
+COPY bin/entry-base.sh /entry-base.sh
+COPY bin/entry-ruby.sh /entry.sh
+RUN chmod +x /entry.sh /entry-base.sh && chown gemini:gemini /entry.sh /entry-base.sh
+
+USER gemini
+
+CMD ["/entry.sh"]

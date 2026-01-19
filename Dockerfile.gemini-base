@@ -1,0 +1,27 @@
+FROM node:20-bullseye
+
+# Install system dependencies (no language-specific runtimes)
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    vim \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install GitHub CLI from releases
+RUN ARCH=$(dpkg --print-architecture) \
+    && GH_VERSION="2.63.2" \
+    && curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${ARCH}.tar.gz" -o gh.tar.gz \
+    && tar -xzf gh.tar.gz \
+    && mv "gh_${GH_VERSION}_linux_${ARCH}/bin/gh" /usr/local/bin/ \
+    && rm -rf gh.tar.gz "gh_${GH_VERSION}_linux_${ARCH}"
+
+# Create non-root user (remove default node user first)
+# Using UID 503 and GID 21 to avoid conflicts with other users
+RUN userdel -r node 2>/dev/null || true && \
+    groupadd -g 21 gemini 2>/dev/null || groupmod -n gemini $(getent group 21 | cut -d: -f1) && \
+    useradd -u 503 -g 21 -m -s /bin/bash gemini && \
+    mkdir -p /home/gemini/.gemini /home/gemini/.config /home/gemini/.ssh && \
+    chown -R gemini:gemini /home/gemini
+
+USER gemini
