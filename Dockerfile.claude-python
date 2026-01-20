@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy entry script
-COPY bin/entry-python.sh /entry.sh
+COPY bin/entry-claude.sh /entry.sh
 RUN chmod +x /entry.sh && chown claude:claude /entry.sh
 
 USER claude
@@ -21,4 +21,4 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 # Make uv available in user PATH
 ENV PATH="/home/claude/.cargo/bin:/home/claude/.local/bin:${PATH}"
 
-CMD ["/entry.sh"]
+CMD ["/entry.sh", "python"]
