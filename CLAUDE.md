@@ -25,19 +25,24 @@ The project uses **language-specific agent containers** to handle dependencies f
 ### Available Containers
 
 **Claude Code:**
+- `claude-base` - Node.js/general use (base image, no language-specific tools)
 - `claude-python` - Python 3.9 + uv (modern package manager)
 - `claude-ruby` - Ruby + bundler
-- (Original `claude` container remains for Node.js/general use)
 
 **Codex:**
+- `codex` - Node.js/general use (base agent container)
 - `codex-python` - Python 3.9 + uv
 - `codex-ruby` - Ruby + bundler
-- (Original `codex` container remains for Node.js/general use)
 
 **GitHub Copilot CLI:**
+- `copilot` - Node.js/general use (base agent container)
 - `copilot-python` - Python 3.11 + uv
 - `copilot-ruby` - Ruby + bundler
-- (Original `copilot` container remains for Node.js/general use)
+
+**Google Gemini:**
+- `gemini` - Node.js/general use (base agent container)
+- `gemini-python` - Python 3.9 + uv
+- `gemini-ruby` - Ruby + bundler
 
 **All containers share:**
 - **Shared mounts**: `/cubicle/repos` (host: `/Users/jplatta/repos`) and `/cubicle/notes` (host: `/Volumes/Server/Notes/my_ken`)
@@ -47,10 +52,28 @@ The project uses **language-specific agent containers** to handle dependencies f
 
 ### Container Entry Scripts
 
-Entry scripts are modular with shared base logic:
-- `bin/entry-base.sh`: Common setup (SSH, git config, MCP servers) sourced by all containers
-- `bin/entry-python.sh`: Sources base, adds Python-specific setup
-- `bin/entry-ruby.sh`: Sources base, adds Ruby-specific setup
+Entry scripts follow a two-layer parameterized architecture:
+
+**Layer 1: Universal Base** (`bin/entry-base.sh`)
+- Common setup for all containers: SSH configuration, git config, obsidian-mcp build
+- Agent-agnostic - contains no agent or language-specific logic
+- Sourced by all agent-specific entry scripts
+
+**Layer 2: Agent-Specific with Language Support**
+Each agent has a single entry script that accepts a language parameter:
+- `entry-claude.sh [python|ruby|node]` - Claude agent with MCP registration
+- `entry-codex.sh [python|ruby|node]` - Codex agent
+- `entry-copilot.sh [python|ruby|node]` - Copilot agent with agents directory
+- `entry-gemini.sh [python|ruby|node]` - Gemini agent
+
+Language parameter defaults to "node" if not specified.
+
+**How it works:**
+- Language containers pass parameter via CMD: `CMD ["/entry-claude.sh", "python"]`
+- Agent sources entry-base.sh for common setup
+- Agent adds agent-specific logic (e.g., MCP for Claude)
+- Agent uses case statement to run language-specific setup based on parameter
+- Single entry script per agent eliminates duplication
 
 ### Key Directories
 
@@ -61,29 +84,39 @@ agent-cubicle/
 │   ├── codex/                   # Codex config
 │   └── copilot/                 # GitHub Copilot CLI config
 ├── bin/                         # Entry scripts
-│   ├── entry-base.sh           # Common entry logic (sourced by all)
-│   ├── entry-python.sh         # Python-specific setup
-│   ├── entry-ruby.sh           # Ruby-specific setup
+│   ├── entry-base.sh           # Universal base logic (SSH, git, obsidian-mcp)
+│   ├── entry-claude.sh         # Claude agent (MCP + language support)
+│   ├── entry-codex.sh          # Codex agent (language support)
+│   ├── entry-copilot.sh        # Copilot agent (agents dir + language support)
+│   ├── entry-gemini.sh         # Gemini agent (language support)
 │   └── launch.sh               # CLI for launching agents in projects
 ├── doc/                         # Internal documentation and notes
 ├── Dockerfile.claude-base       # Base Claude container
 ├── Dockerfile.claude-python     # Claude + Python + uv
 ├── Dockerfile.claude-ruby       # Claude + Ruby + bundler
 ├── Dockerfile.codex-base        # Base Codex container
+├── Dockerfile.codex             # Codex agent container
 ├── Dockerfile.codex-python      # Codex + Python + uv
 ├── Dockerfile.codex-ruby        # Codex + Ruby + bundler
 ├── Dockerfile.copilot-base      # Base Copilot container
+├── Dockerfile.copilot           # Copilot agent container
 ├── Dockerfile.copilot-python    # Copilot + Python + uv
 ├── Dockerfile.copilot-ruby      # Copilot + Ruby + bundler
+├── Dockerfile.gemini-base       # Base Gemini container
+├── Dockerfile.gemini            # Gemini agent container
+├── Dockerfile.gemini-python     # Gemini + Python + uv
+├── Dockerfile.gemini-ruby       # Gemini + Ruby + bundler
 └── docker-compose.yml           # Orchestration configuration
 ```
 
 ### MCP Server Configuration
 
-Claude Code container automatically configures three MCP servers on startup:
+Claude Code containers (all variants) automatically configure three MCP servers on startup via `entry-claude.sh`:
 1. **obsidian-mcp**: Built from mounted source at `/obsidian-mcp`, provides Obsidian vault access
 2. **todoist**: HTTP transport to `https://ai.todoist.net/mcp` (requires TODOIST_TOKEN)
 3. **github**: HTTP transport to GitHub Copilot MCP API (requires GITHUB_TOKEN)
+
+Note: Other agents (Codex, Copilot, Gemini) do not support MCP servers.
 
 ## Development Commands
 
@@ -188,14 +221,14 @@ npm test                         # Uses project dependencies
 ### MCP Server Management (Claude Code)
 
 ```bash
-# List configured MCP servers
-docker exec -it claude-cubicle claude mcp list
+# List configured MCP servers (works with any Claude container)
+docker exec -it claude-python-cubicle claude mcp list
 
 # Add a new MCP server (stdio transport)
-docker exec -it claude-cubicle claude mcp add --transport stdio <name> <command> [args...]
+docker exec -it claude-python-cubicle claude mcp add --transport stdio <name> <command> [args...]
 
 # Add a new MCP server (HTTP transport with auth)
-docker exec -it claude-cubicle claude mcp add --header "Authorization: Bearer <token>" --transport http <name> <url>
+docker exec -it claude-python-cubicle claude mcp add --header "Authorization: Bearer <token>" --transport http <name> <url>
 ```
 
 ## Environment Configuration
@@ -214,13 +247,16 @@ OPENAI_API_KEY=<your-key>              # Optional: For Codex if using OpenAI
 
 ### Adding New MCP Servers
 
-Modify `bin/entry-base.sh` to add MCP servers at container startup. The base entry script is sourced by all language-specific containers. Use conditional checks to avoid duplicate registrations:
+Modify `bin/entry-claude.sh` to add MCP servers at Claude container startup. This script is used by all Claude containers (base, python, ruby). Use conditional checks to avoid duplicate registrations:
 
 ```bash
+# In bin/entry-claude.sh, add before the final "tail -f /dev/null"
 if ! claude mcp list 2>/dev/null | grep -q "server-name"; then
   claude mcp add --transport stdio server-name command args...
 fi
 ```
+
+Note: Only Claude containers support MCP. Do not add MCP logic to `entry-base.sh` as it is shared by all agents.
 
 ### Adding New Language Containers
 
