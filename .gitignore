@@ -1,6 +1,8 @@
 # Environment variables with API keys
 .env
 
+.gemini/tool-log.txt
+
 config/*
 
 !config/shared
