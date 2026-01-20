@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy entry scripts
 COPY bin/entry-base.sh /entry-base.sh
-COPY bin/entry-python.sh /entry.sh
+COPY bin/entry-gemini.sh /entry.sh
 RUN chmod +x /entry.sh /entry-base.sh && chown gemini:gemini /entry.sh /entry-base.sh
 
 USER gemini
@@ -22,4 +22,4 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 # Make uv available in user PATH
 ENV PATH="/home/gemini/.cargo/bin:/home/gemini/.local/bin:${PATH}"
 
-CMD ["/entry.sh"]
+CMD ["/entry.sh", "python"]
