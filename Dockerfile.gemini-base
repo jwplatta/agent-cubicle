@@ -24,4 +24,6 @@ RUN userdel -r node 2>/dev/null || true && \
     mkdir -p /home/gemini/.gemini /home/gemini/.config /home/gemini/.ssh && \
     chown -R gemini:gemini /home/gemini
 
+RUN npm install -g @google/gemini-cli
+
 USER gemini
