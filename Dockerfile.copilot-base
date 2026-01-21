@@ -17,13 +17,6 @@ RUN ARCH=$(dpkg --print-architecture) \
     && mv "gh_${GH_VERSION}_linux_${ARCH}/bin/gh" /usr/local/bin/ \
     && rm -rf gh.tar.gz "gh_${GH_VERSION}_linux_${ARCH}"
 
-# Install GitHub Copilot CLI
-RUN npm install -g @github/copilot
-
-RUN mkdir -p /workspace
-
-WORKDIR /workspace
-
 # Create non-root user (remove default node user first)
 # Using UID 502 and GID 20 to match host macOS user for volume mount permissions
 RUN userdel -r node 2>/dev/null || true && \
@@ -31,5 +24,7 @@ RUN userdel -r node 2>/dev/null || true && \
     useradd -u 502 -g 20 -m -s /bin/bash copilot && \
     mkdir -p /home/copilot/.copilot /home/copilot/.config/github-copilot /home/copilot/.ssh && \
     chown -R copilot:copilot /home/copilot /workspace
+
+RUN npm install -g @github/copilot
 
 USER copilot
