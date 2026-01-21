@@ -36,7 +36,6 @@ if [ -n "${GITHUB_TOKEN}" ]; then
   chmod 600 ~/.git-credentials
 fi
 
-# Build obsidian-mcp if available
 if [ -d "/obsidian-mcp" ]; then
   cd /obsidian-mcp
   npm install --silent
