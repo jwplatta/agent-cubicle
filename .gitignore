@@ -27,3 +27,5 @@ config/*
 !config/copilot/mcp-config.json.template
 
 tmp/
+
+plugins/template
