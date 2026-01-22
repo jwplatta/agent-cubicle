@@ -19,6 +19,11 @@
       "name": "pythonic",
       "source": "./plugins/pythonic",
       "description": "Plugin for programming in Python the way I like to"
+    },
+    {
+      "name": "quant-tutor",
+      "source": "./plugins/quant-tutor",
+      "description": "Plugin for learning quantitative finance concepts"
     }
   ]
 }
