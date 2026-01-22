@@ -1,0 +1,42 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "pattern": "git commit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git diff --cached --name-only --diff-filter=ACM | grep '\\.rb$' | xargs -r bundle exec rubocop --force-exclusion",
+            "description": "Run RuboCop on staged Ruby files before commit"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "pattern": "**/*.rb",
+        "excludePattern": "**/*_spec.rb",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'File written: $TOOL_INPUT' | jq -r '.file_path'",
+            "description": "Suggest tests for newly created Ruby files"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "pattern": "**/*.rb",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Code smell analysis for: $TOOL_INPUT' | jq -r '.file_path'",
+            "description": "Log detected code smells after file writes to aid refactoring tracking"
+          }
+        ]
+      }
+    ]
+  }
+}
