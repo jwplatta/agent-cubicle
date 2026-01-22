@@ -1,0 +1,1 @@
+Just call the hello script.
