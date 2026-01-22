@@ -24,7 +24,6 @@ RUN userdel -r node 2>/dev/null || true && \
     mkdir -p /home/claude/.claude /home/claude/.config /home/claude/.ssh && \
     chown -R claude:claude /home/claude
 
-# Install Claude Code CLI
 RUN npm install -g @anthropic-ai/claude-code
 
 USER claude

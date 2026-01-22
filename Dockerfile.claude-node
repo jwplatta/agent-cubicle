@@ -1,0 +1,14 @@
+FROM agent-cubicle-claude-base:latest
+
+USER root
+
+# Node.js is already in the base image (node:20-bullseye)
+# No additional installation needed
+
+# Copy entry script
+COPY bin/entry-claude.sh /entry.sh
+RUN chmod +x /entry.sh && chown claude:claude /entry.sh
+
+USER claude
+
+CMD ["/entry.sh", "node"]
