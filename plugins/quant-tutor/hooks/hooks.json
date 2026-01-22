@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./hooks/capture-skill-output.sh",
+            "command": "capture-skill-output.sh",
             "timeout": 30000
           }
         ]
