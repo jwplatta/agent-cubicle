@@ -10,7 +10,6 @@ source /entry-base.sh
 # Claude-specific: Add MCP servers
 echo "Adding MCP servers..."
 
-# Only add if not already present
 if ! claude mcp list 2>/dev/null | grep -q "obsidian-mcp"; then
   claude mcp add --scope user --transport stdio obsidian-mcp node /obsidian-mcp/build/index.js
 fi
@@ -32,7 +31,6 @@ fi
 echo "MCP servers configured. Current list:"
 claude mcp list
 
-# Language-specific setup
 case "$LANGUAGE" in
   python)
     echo "Python environment:"
