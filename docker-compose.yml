@@ -5,7 +5,7 @@ services:
   claude-base:
     build:
       context: .
-      dockerfile: Dockerfile.claude-base
+      dockerfile: containers/Dockerfile.claude-base
     image: agent-cubicle-claude-base:latest
     container_name: claude-base-cubicle
     stdin_open: true
@@ -17,6 +17,8 @@ services:
       - /Users/jplatta/.config/gh:/home/claude/.config/gh
       - ./config/ssh/id_ed25519:/home/claude/.ssh/id_ed25519:ro
       - ~/.gitconfig:/home/claude/.gitconfig.host:ro
+      - ./mcp/obsidian-mcp:/home/claude/.config/obsidian-mcp
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - TODOIST_TOKEN=${TODOIST_TOKEN}
@@ -36,7 +38,7 @@ services:
       - claude-base
     build:
       context: .
-      dockerfile: Dockerfile.claude-python
+      dockerfile: containers/Dockerfile.claude-python
     container_name: claude-python-cubicle
     stdin_open: true
     tty: true
@@ -45,13 +47,12 @@ services:
       - ./config/shared/BASE_AGENT.md:/home/claude/.claude/CLAUDE.md
       - /Users/jplatta/repos:/cubicle/repos
       - /Volumes/Server/Notes/my_ken:/cubicle/notes
-      - ./config/obsidian-mcp-vaults.json:/home/claude/.config/obsidian-mcp/vaults.json
       - /Users/jplatta/.config/gh:/home/claude/.config/gh
-      - /Users/jplatta/.config/obsidian-mcp:/home/claude/.config/obsidian-mcp
-      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
       - ./config/ssh/id_ed25519:/home/claude/.ssh/id_ed25519:ro
       - ~/.gitconfig:/home/claude/.gitconfig.host:ro
       - ./bin/entry-base.sh:/entry-base.sh:ro
+      - ./config/obsidian-mcp:/home/claude/.config/obsidian-mcp
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - TODOIST_TOKEN=${TODOIST_TOKEN}
@@ -71,7 +72,7 @@ services:
       - claude-base
     build:
       context: .
-      dockerfile: Dockerfile.claude-ruby
+      dockerfile: containers/Dockerfile.claude-ruby
     container_name: claude-ruby-cubicle
     stdin_open: true
     tty: true
@@ -80,13 +81,46 @@ services:
       - ./config/shared/BASE_AGENT.md:/home/claude/.claude/CLAUDE.md
       - /Users/jplatta/repos:/cubicle/repos
       - /Volumes/Server/Notes/my_ken:/cubicle/notes
-      - ./config/obsidian-mcp-vaults.json:/home/claude/.config/obsidian-mcp/vaults.json
       - /Users/jplatta/.config/gh:/home/claude/.config/gh
-      - /Users/jplatta/.config/obsidian-mcp:/home/claude/.config/obsidian-mcp
-      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
       - ./config/ssh/id_ed25519:/home/claude/.ssh/id_ed25519:ro
       - ~/.gitconfig:/home/claude/.gitconfig.host:ro
       - ./bin/entry-base.sh:/entry-base.sh:ro
+      - ./config/obsidian-mcp:/home/claude/.config/obsidian-mcp
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TODOIST_TOKEN=${TODOIST_TOKEN}
+      - GIT_TERMINAL_PROMPT=0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    working_dir: /cubicle
+
+  claude-node:
+    depends_on:
+      - claude-base
+    build:
+      context: .
+      dockerfile: containers/Dockerfile.claude-node
+    container_name: claude-node-cubicle
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config/claude/:/home/claude/.claude
+      - ./config/shared/BASE_AGENT.md:/home/claude/.claude/CLAUDE.md
+      - /Users/jplatta/repos:/cubicle/repos
+      - /Volumes/Server/Notes/my_ken:/cubicle/notes
+      - /Users/jplatta/.config/gh:/home/claude/.config/gh
+      - ./config/ssh/id_ed25519:/home/claude/.ssh/id_ed25519:ro
+      - ~/.gitconfig:/home/claude/.gitconfig.host:ro
+      - ./bin/entry-base.sh:/entry-base.sh:ro
+      - ./config/obsidian-mcp:/home/claude/.config/obsidian-mcp
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - TODOIST_TOKEN=${TODOIST_TOKEN}
@@ -107,7 +141,7 @@ services:
   codex-base:
     build:
       context: .
-      dockerfile: Dockerfile.codex-base
+      dockerfile: containers/Dockerfile.codex-base
     image: agent-cubicle-codex-base:latest
     container_name: codex-base-cubicle
     stdin_open: true
@@ -138,7 +172,7 @@ services:
       - codex-base
     build:
       context: .
-      dockerfile: Dockerfile.codex-python
+      dockerfile: containers/Dockerfile.codex-python
     container_name: codex-python-cubicle
     stdin_open: true
     tty: true
@@ -147,13 +181,12 @@ services:
       - /Users/jplatta/repos:/cubicle/repos
       - /Volumes/Server/Notes/my_ken:/cubicle/notes
       - /Users/jplatta/.config/gh:/home/codex/.config/gh
-      - /Users/jplatta/.config/obsidian-mcp:/home/codex/.config/obsidian-mcp
-      - ./config/obsidian-mcp-vaults.json:/home/codex/.config/obsidian-mcp/vaults.json
-      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
       - ./config/ssh/id_ed25519:/home/codex/.ssh/id_ed25519:ro
       - ~/.gitconfig:/home/codex/.gitconfig.host:ro
       - ./config/shared/BASE_AGENT.md:/home/codex/.codex/AGENTS.md
       - ./bin/entry-base.sh:/entry-base.sh:ro
+      - ./config/obsidian-mcp:/home/codex/.config/obsidian-mcp
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - TODOIST_TOKEN=${TODOIST_TOKEN}
@@ -172,7 +205,7 @@ services:
       - codex-base
     build:
       context: .
-      dockerfile: Dockerfile.codex-ruby
+      dockerfile: containers/Dockerfile.codex-ruby
     container_name: codex-ruby-cubicle
     stdin_open: true
     tty: true
@@ -181,8 +214,7 @@ services:
       - /Users/jplatta/repos:/cubicle/repos
       - /Volumes/Server/Notes/my_ken:/cubicle/notes
       - /Users/jplatta/.config/gh:/home/codex/.config/gh
-      - /Users/jplatta/.config/obsidian-mcp:/home/codex/.config/obsidian-mcp
-      - ./config/obsidian-mcp-vaults.json:/home/codex/.config/obsidian-mcp/vaults.json
+      - ./config/obsidian-mcp:/home/codex/.config/obsidian-mcp
       - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
       - ./config/ssh/id_ed25519:/home/codex/.ssh/id_ed25519:ro
       - ~/.gitconfig:/home/codex/.gitconfig.host:ro
@@ -207,7 +239,7 @@ services:
   copilot-base:
     build:
       context: .
-      dockerfile: Dockerfile.copilot-base
+      dockerfile: containers/Dockerfile.copilot-base
     image: agent-cubicle-copilot-base:latest
     container_name: copilot-base-cubicle
     stdin_open: true
@@ -238,7 +270,7 @@ services:
       - copilot-base
     build:
       context: .
-      dockerfile: Dockerfile.copilot-python
+      dockerfile: containers/Dockerfile.copilot-python
     container_name: copilot-python-cubicle
     stdin_open: true
     tty: true
@@ -248,13 +280,12 @@ services:
       - /Users/jplatta/repos:/cubicle/repos
       - /Volumes/Server/Notes/my_ken:/cubicle/notes
       - /Users/jplatta/.config/gh:/home/copilot/.config/gh
-      - /Users/jplatta/.config/obsidian-mcp:/home/copilot/.config/obsidian-mcp
-      - ./config/obsidian-mcp-vaults.json:/home/copilot/.config/obsidian-mcp/vaults.json
-      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
       - ./config/ssh/id_ed25519:/home/copilot/.ssh/id_ed25519:ro
       - ~/.gitconfig:/home/copilot/.gitconfig.host:ro
       - ./config/shared/BASE_AGENT.md:/home/copilot/.copilot/agents/BASE_AGENT.md
       - ./bin/entry-base.sh:/entry-base.sh:ro
+      - ./config/obsidian-mcp:/home/copilot/.config/obsidian-mcp
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -273,7 +304,7 @@ services:
       - copilot-base
     build:
       context: .
-      dockerfile: Dockerfile.copilot-ruby
+      dockerfile: containers/Dockerfile.copilot-ruby
     container_name: copilot-ruby-cubicle
     stdin_open: true
     tty: true
@@ -283,13 +314,12 @@ services:
       - /Users/jplatta/repos:/cubicle/repos
       - /Volumes/Server/Notes/my_ken:/cubicle/notes
       - /Users/jplatta/.config/gh:/home/copilot/.config/gh
-      - /Users/jplatta/.config/obsidian-mcp:/home/copilot/.config/obsidian-mcp
-      - ./config/obsidian-mcp-vaults.json:/home/copilot/.config/obsidian-mcp/vaults.json
-      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
       - ./config/ssh/id_ed25519:/home/copilot/.ssh/id_ed25519:ro
       - ~/.gitconfig:/home/copilot/.gitconfig.host:ro
       - ./config/shared/BASE_AGENT.md:/home/copilot/.copilot/agents/BASE_AGENT.md
       - ./bin/entry-base.sh:/entry-base.sh:ro
+      - ./config/obsidian-mcp:/home/copilot/.config/obsidian-mcp
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -309,7 +339,7 @@ services:
   gemini-base:
     build:
       context: .
-      dockerfile: Dockerfile.gemini-base
+      dockerfile: containers/Dockerfile.gemini-base
     image: agent-cubicle-gemini-base:latest
     container_name: gemini-base-cubicle
     stdin_open: true
@@ -340,7 +370,7 @@ services:
       - gemini-base
     build:
       context: .
-      dockerfile: Dockerfile.gemini-python
+      dockerfile: containers/Dockerfile.gemini-python
     container_name: gemini-python-cubicle
     stdin_open: true
     tty: true
@@ -353,6 +383,8 @@ services:
       - ./config/ssh/id_ed25519:/home/gemini/.ssh/id_ed25519:ro
       - ~/.gitconfig:/home/gemini/.gitconfig.host:ro
       - ./bin/entry-base.sh:/entry-base.sh:ro
+      - ./config/obsidian-mcp:/home/gemini/.config/obsidian-mcp
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - TODOIST_TOKEN=${TODOIST_TOKEN}
@@ -372,7 +404,7 @@ services:
       - gemini-base
     build:
       context: .
-      dockerfile: Dockerfile.gemini-ruby
+      dockerfile: containers/Dockerfile.gemini-ruby
     container_name: gemini-ruby-cubicle
     stdin_open: true
     tty: true
@@ -385,6 +417,8 @@ services:
       - ./config/ssh/id_ed25519:/home/gemini/.ssh/id_ed25519:ro
       - ~/.gitconfig:/home/gemini/.gitconfig.host:ro
       - ./bin/entry-base.sh:/entry-base.sh:ro
+      - ./config/obsidian-mcp:/home/gemini/.config/obsidian-mcp
+      - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - TODOIST_TOKEN=${TODOIST_TOKEN}
