@@ -1,1 +1,0 @@
-Generate a random number between the integers provided by the user using the script random_int.py
