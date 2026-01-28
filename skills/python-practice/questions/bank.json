@@ -1,0 +1,310 @@
+{
+  "pandas": {
+    "series": {
+      "easy": [
+        {
+          "prompt": "Create a pandas Series from the following dictionary of stock returns:\n\n```python\nreturns = {'AAPL': -0.01, 'MSFT': 0.03, 'TSLA': 0.05, 'LULU': -0.005}\n```\n\nThen retrieve the return for `'TSLA'`.",
+          "solution": "returns = {'AAPL': -0.01, 'MSFT': 0.03, 'TSLA': 0.05, 'LULU': -0.005}\nser = pd.Series(returns)\nser['TSLA']",
+          "hint": "Use `pd.Series(dict)` to create a Series from a dictionary."
+        },
+        {
+          "prompt": "Given a Series `ser` of stock returns, retrieve only the positive returns using boolean masking.",
+          "solution": "ser = pd.Series({'AAPL': -0.01, 'MSFT': 0.03, 'TSLA': 0.05, 'LULU': -0.005})\nser[ser > 0]",
+          "hint": "A boolean mask like `ser > 0` returns True/False for each element. Use it to index the Series.",
+          "setup": "ser = pd.Series({'AAPL': -0.01, 'MSFT': 0.03, 'TSLA': 0.05, 'LULU': -0.005})"
+        },
+        {
+          "prompt": "Given the Series below, compute the mean and standard deviation of the returns.\n\n```python\nser = pd.Series({'AAPL': -0.01, 'MSFT': 0.03, 'TSLA': 0.05, 'LULU': -0.005})\n```",
+          "solution": "ser = pd.Series({'AAPL': -0.01, 'MSFT': 0.03, 'TSLA': 0.05, 'LULU': -0.005})\nprint('Mean:', ser.mean())\nprint('Std:', ser.std())",
+          "hint": "Series have built-in `.mean()` and `.std()` methods."
+        }
+      ],
+      "medium": [
+        {
+          "prompt": "You have two Series with partially overlapping indexes:\n\n```python\nret1 = pd.Series({'AAPL': 0.01, 'MSFT': -0.02, 'TSLA': 0.03})\nret2 = pd.Series({'MSFT': 0.01, 'TSLA': -0.01, 'LULU': 0.02})\n```\n\nAdd them together so that missing values are filled with `0` instead of `NaN`.",
+          "solution": "ret1 = pd.Series({'AAPL': 0.01, 'MSFT': -0.02, 'TSLA': 0.03})\nret2 = pd.Series({'MSFT': 0.01, 'TSLA': -0.01, 'LULU': 0.02})\nret1.add(ret2, fill_value=0)",
+          "hint": "Use the `.add()` method with `fill_value=0`."
+        },
+        {
+          "prompt": "Given a Series of stock returns, use `.map()` to classify each return as `'gain'` if positive and `'loss'` if negative or zero.",
+          "solution": "ser = pd.Series({'AAPL': -0.01, 'MSFT': 0.03, 'TSLA': 0.05, 'LULU': -0.005})\nser.map(lambda x: 'gain' if x > 0 else 'loss')",
+          "setup": "ser = pd.Series({'AAPL': -0.01, 'MSFT': 0.03, 'TSLA': 0.05, 'LULU': -0.005})"
+        }
+      ],
+      "hard": [
+        {
+          "prompt": "You have three Series with different index sets representing returns from three different strategies. Combine them into a single DataFrame, align on the union of all indexes, fill any missing returns with `0`, and compute the average return across strategies for each ticker.",
+          "solution": "s1 = pd.Series({'AAPL': 0.01, 'MSFT': -0.02})\ns2 = pd.Series({'MSFT': 0.015, 'TSLA': 0.03})\ns3 = pd.Series({'AAPL': -0.005, 'TSLA': 0.02, 'LULU': 0.01})\n\ndf = pd.DataFrame({'s1': s1, 's2': s2, 's3': s3}).fillna(0)\ndf.mean(axis=1)"
+        }
+      ]
+    },
+    "dataframes": {
+      "easy": [
+        {
+          "prompt": "Using the `stock_returns` DataFrame from the setup cell, select only the `'AAPL'` and `'TSLA'` columns.",
+          "solution": "stock_returns[['AAPL', 'TSLA']]",
+          "hint": "Pass a list of column names inside the brackets: `df[['col1', 'col2']]`."
+        },
+        {
+          "prompt": "Using the `stock_returns` DataFrame, select all rows where AAPL's return was negative.",
+          "solution": "stock_returns[stock_returns['AAPL'] < 0]",
+          "hint": "Create a boolean mask with `df['col'] < 0` and use it to filter rows."
+        }
+      ],
+      "medium": [
+        {
+          "prompt": "Using the `stock_returns` DataFrame, select the first 5 rows and only the `'MSFT'` and `'LULU'` columns using `.loc`.",
+          "solution": "stock_returns.loc[stock_returns.index[:5], ['MSFT', 'LULU']]"
+        },
+        {
+          "prompt": "Add a new column `'portfolio'` to `stock_returns` that is the equal-weighted average of all four stock returns for each day.",
+          "solution": "stock_returns['portfolio'] = stock_returns.mean(axis=1)"
+        },
+        {
+          "prompt": "Using `stock_returns`, find the 5 dates with the largest TSLA returns.",
+          "solution": "stock_returns.nlargest(5, 'TSLA')"
+        }
+      ],
+      "hard": [
+        {
+          "prompt": "Create a new DataFrame from `stock_returns` where:\n1. Only include days where at least 3 out of 4 stocks had positive returns\n2. Add a column `'best_stock'` containing the ticker with the highest return that day\n3. Sort by the `'best_stock'` column's return value in descending order",
+          "solution": "positive_counts = (stock_returns > 0).sum(axis=1)\nfiltered = stock_returns[positive_counts >= 3].copy()\nfiltered['best_stock'] = filtered[tickers].idxmax(axis=1)\nfiltered['best_return'] = filtered[tickers].max(axis=1)\nfiltered.sort_values('best_return', ascending=False)"
+        }
+      ]
+    },
+    "missing_data": {
+      "easy": [
+        {
+          "prompt": "Using the `messy_data` DataFrame, count the number of missing values in each column.",
+          "solution": "messy_data.isna().sum()",
+          "hint": "Use `.isna()` to detect nulls, then `.sum()` to count per column."
+        },
+        {
+          "prompt": "Fill all missing `'Age'` values in `messy_data` with the column's median value.",
+          "solution": "messy_data['Age'].fillna(messy_data['Age'].median())",
+          "hint": "Use `.fillna()` with `.median()` as the fill value."
+        }
+      ],
+      "medium": [
+        {
+          "prompt": "Clean the `messy_data` DataFrame:\n1. Drop rows where `'Name'` is null\n2. Fill missing `'Age'` with the median\n3. Fill missing `'Department'` with `'Unknown'`",
+          "solution": "cleaned = messy_data.dropna(subset=['Name']).copy()\ncleaned['Age'] = cleaned['Age'].fillna(cleaned['Age'].median())\ncleaned['Department'] = cleaned['Department'].fillna('Unknown')\ncleaned"
+        }
+      ],
+      "hard": [
+        {
+          "prompt": "The `messy_data` DataFrame has multiple data quality issues. Write a complete cleaning pipeline that:\n1. Strips whitespace and lowercases all `'Name'` values\n2. Removes duplicate rows (after name cleaning)\n3. Converts `'Salary'` to numeric (non-numeric values become NaN), then fills with the department median\n4. Converts `'Start_Date'` to datetime\n5. Drops rows where `'Name'` is null",
+          "solution": "clean = messy_data.copy()\nclean['Name'] = clean['Name'].str.strip().str.lower()\nclean = clean.dropna(subset=['Name'])\nclean = clean.drop_duplicates()\nclean['Salary'] = pd.to_numeric(clean['Salary'], errors='coerce')\nclean['Salary'] = clean.groupby('Department')['Salary'].transform(\n    lambda x: x.fillna(x.median())\n)\nclean['Start_Date'] = pd.to_datetime(clean['Start_Date'])\nclean"
+        }
+      ]
+    },
+    "groupby_pivot_merge": {
+      "easy": [
+        {
+          "prompt": "Using the `sectors` Series and `stock_returns` DataFrame, compute the mean return for the last row of `stock_returns` grouped by sector.\n\n**Setup:** The `sectors` Series maps tickers to sectors. Use it to group the columns of the last row.",
+          "solution": "last_day = stock_returns.iloc[-1]\nlast_day.groupby(sectors).mean()",
+          "hint": "Select the last row with `.iloc[-1]`, then use `.groupby(sectors)` to group by sector."
+        }
+      ],
+      "medium": [
+        {
+          "prompt": "Create a pivot table from the following trades DataFrame that shows the average `'price'` for each `'ticker'` by `'side'` (buy/sell).\n\n```python\ntrades = pd.DataFrame({\n    'ticker': ['AAPL','AAPL','MSFT','MSFT','AAPL','MSFT'],\n    'side': ['buy','sell','buy','buy','sell','sell'],\n    'price': [150, 155, 300, 305, 152, 310],\n    'quantity': [100, 50, 200, 100, 75, 150]\n})\n```",
+          "solution": "trades = pd.DataFrame({\n    'ticker': ['AAPL','AAPL','MSFT','MSFT','AAPL','MSFT'],\n    'side': ['buy','sell','buy','buy','sell','sell'],\n    'price': [150, 155, 300, 305, 152, 310],\n    'quantity': [100, 50, 200, 100, 75, 150]\n})\ntrades.pivot_table(index='ticker', columns='side', values='price', aggfunc='mean')"
+        },
+        {
+          "prompt": "You have two DataFrames:\n\n```python\nprices = pd.DataFrame({'ticker': ['AAPL','MSFT','TSLA'], 'price': [150, 300, 250]})\ninfo = pd.DataFrame({'ticker': ['AAPL','MSFT','LULU'], 'sector': ['Tech','Tech','Consumer']})\n```\n\nMerge them with a left join on `'ticker'` so all prices are kept.",
+          "solution": "prices = pd.DataFrame({'ticker': ['AAPL','MSFT','TSLA'], 'price': [150, 300, 250]})\ninfo = pd.DataFrame({'ticker': ['AAPL','MSFT','LULU'], 'sector': ['Tech','Tech','Consumer']})\npd.merge(prices, info, on='ticker', how='left')"
+        }
+      ],
+      "hard": [
+        {
+          "prompt": "Using `stock_returns`:\n1. Compute the 20-day rolling mean for each stock\n2. Create a signal DataFrame where the value is `1` if the current return is above its rolling mean, else `0`\n3. Group by the `sectors` Series and compute the average signal per sector per day\n4. Reshape so sectors are columns and dates are rows",
+          "solution": "rolling_mean = stock_returns.rolling(20).mean()\nsignal = (stock_returns > rolling_mean).astype(int)\n# Map columns to sectors\nsignal_long = signal.stack().reset_index()\nsignal_long.columns = ['date', 'ticker', 'signal']\nsignal_long['sector'] = signal_long['ticker'].map(sectors)\nresult = signal_long.pivot_table(index='date', columns='sector', values='signal', aggfunc='mean')\nresult"
+        }
+      ]
+    },
+    "time_series": {
+      "easy": [
+        {
+          "prompt": "Create a DatetimeIndex of all business days in January 2021 using `pd.date_range`.",
+          "solution": "pd.date_range('2021-01-01', '2021-01-31', freq='B')",
+          "hint": "Use `freq='B'` for business days."
+        }
+      ],
+      "medium": [
+        {
+          "prompt": "Using `stock_returns`, resample to monthly frequency and compute the cumulative return for each month.\n\nRecall: cumulative return = `(1 + daily_return).prod() - 1`",
+          "solution": "stock_returns.resample('M').apply(lambda x: (1 + x).prod() - 1)"
+        },
+        {
+          "prompt": "Compute the 5-day rolling standard deviation of AAPL returns from `stock_returns`. Then find the date with the highest rolling volatility.",
+          "solution": "rolling_vol = stock_returns['AAPL'].rolling(5).std()\nrolling_vol.idxmax()"
+        }
+      ],
+      "hard": [
+        {
+          "prompt": "Using `stock_returns`:\n1. Compute daily returns as a percentage change (they already are returns, so use them directly)\n2. Compute the 10-day exponentially weighted moving average for each stock\n3. Shift the EWMA forward by 1 day to create a \"signal\" (yesterday's EWMA predicts today)\n4. Create a column for each stock showing whether today's actual return has the same sign as the signal\n5. Report the hit rate (% of correct sign predictions) per stock",
+          "solution": "ewma = stock_returns.ewm(span=10).mean()\nsignal = ewma.shift(1)\nsame_sign = (np.sign(stock_returns) == np.sign(signal))\nhit_rate = same_sign.mean()\nhit_rate"
+        }
+      ]
+    },
+    "plotting": {
+      "easy": [
+        {
+          "prompt": "Plot a line chart of AAPL returns from `stock_returns` with a title.",
+          "solution": "stock_returns['AAPL'].plot(title='AAPL Daily Returns')\nplt.show()",
+          "hint": "Use `.plot()` on a Series and pass `title=` as an argument."
+        }
+      ],
+      "medium": [
+        {
+          "prompt": "Create a heatmap of the correlation matrix of `stock_returns` using seaborn. Include annotations showing the correlation values.",
+          "solution": "corr = stock_returns.corr()\nsns.heatmap(corr, annot=True, cmap='coolwarm', center=0)\nplt.title('Stock Return Correlations')\nplt.show()"
+        }
+      ],
+      "hard": [
+        {
+          "prompt": "Create a 2x2 subplot figure showing:\n1. Top-left: Line plot of cumulative returns for all stocks `(1 + stock_returns).cumprod()`\n2. Top-right: Histogram of AAPL returns with 20 bins\n3. Bottom-left: Scatter plot of AAPL vs MSFT returns\n4. Bottom-right: Bar chart of mean returns by stock\n\nAdd appropriate titles and labels to each subplot.",
+          "solution": "fig, axes = plt.subplots(2, 2, figsize=(12, 8))\n\n# Cumulative returns\ncum_ret = (1 + stock_returns).cumprod()\ncum_ret.plot(ax=axes[0, 0], title='Cumulative Returns')\n\n# AAPL histogram\nstock_returns['AAPL'].hist(bins=20, ax=axes[0, 1])\naxes[0, 1].set_title('AAPL Return Distribution')\n\n# Scatter\naxes[1, 0].scatter(stock_returns['AAPL'], stock_returns['MSFT'], alpha=0.5)\naxes[1, 0].set_xlabel('AAPL')\naxes[1, 0].set_ylabel('MSFT')\naxes[1, 0].set_title('AAPL vs MSFT')\n\n# Bar chart\nstock_returns.mean().plot(kind='bar', ax=axes[1, 1])\naxes[1, 1].set_title('Mean Returns')\n\nplt.tight_layout()\nplt.show()"
+        }
+      ]
+    }
+  },
+  "algorithms": {
+    "data_structures": {
+      "easy": [
+        {
+          "prompt": "Write a function `reverse_list(lst)` that reverses a list **in place** without using `lst.reverse()` or slicing.",
+          "solution": "def reverse_list(lst):\n    left, right = 0, len(lst) - 1\n    while left < right:\n        lst[left], lst[right] = lst[right], lst[left]\n        left += 1\n        right -= 1\n    return lst\n\n# Test\nassert reverse_list([1, 2, 3, 4, 5]) == [5, 4, 3, 2, 1]",
+          "hint": "Use two pointers: one at the start, one at the end. Swap and move inward."
+        },
+        {
+          "prompt": "Write a function `count_frequencies(lst)` that returns a dictionary mapping each element to its count. Do not use `collections.Counter`.",
+          "solution": "def count_frequencies(lst):\n    freq = {}\n    for item in lst:\n        freq[item] = freq.get(item, 0) + 1\n    return freq\n\n# Test\nassert count_frequencies(['a', 'b', 'a', 'c', 'b', 'a']) == {'a': 3, 'b': 2, 'c': 1}",
+          "hint": "Use `dict.get(key, 0)` to handle missing keys."
+        }
+      ],
+      "medium": [
+        {
+          "prompt": "Implement a stack using a Python list that supports `push`, `pop`, `peek`, and `is_empty` operations. Then use it to check if a string of parentheses `()[]{}` is balanced.",
+          "solution": "class Stack:\n    def __init__(self):\n        self._items = []\n\n    def push(self, item):\n        self._items.append(item)\n\n    def pop(self):\n        return self._items.pop()\n\n    def peek(self):\n        return self._items[-1]\n\n    def is_empty(self):\n        return len(self._items) == 0\n\n\ndef is_balanced(s):\n    stack = Stack()\n    pairs = {')': '(', ']': '[', '}': '{'}\n    for ch in s:\n        if ch in '([{':\n            stack.push(ch)\n        elif ch in pairs:\n            if stack.is_empty() or stack.pop() != pairs[ch]:\n                return False\n    return stack.is_empty()\n\n# Tests\nassert is_balanced('({[]})') == True\nassert is_balanced('([)]') == False\nassert is_balanced('') == True"
+        },
+        {
+          "prompt": "Write a function `top_k_frequent(nums, k)` that returns the `k` most frequent elements from a list. Use a heap for O(n log k) efficiency.",
+          "solution": "def top_k_frequent(nums, k):\n    freq = {}\n    for n in nums:\n        freq[n] = freq.get(n, 0) + 1\n    return heapq.nlargest(k, freq.keys(), key=freq.get)\n\n# Test\nassert set(top_k_frequent([1,1,1,2,2,3], 2)) == {1, 2}"
+        }
+      ],
+      "hard": [
+        {
+          "prompt": "Implement an LRU (Least Recently Used) Cache with O(1) `get` and `put` operations. The cache has a fixed capacity; when full, evict the least recently used key.\n\nInterface:\n- `LRUCache(capacity)` - initialize with positive capacity\n- `get(key)` - return value or -1 if not found\n- `put(key, value)` - insert or update; evict LRU if at capacity",
+          "solution": "class LRUCache:\n    def __init__(self, capacity):\n        self.capacity = capacity\n        self.cache = OrderedDict()\n\n    def get(self, key):\n        if key not in self.cache:\n            return -1\n        self.cache.move_to_end(key)\n        return self.cache[key]\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.cache.move_to_end(key)\n        self.cache[key] = value\n        if len(self.cache) > self.capacity:\n            self.cache.popitem(last=False)\n\n# Test\ncache = LRUCache(2)\ncache.put(1, 1)\ncache.put(2, 2)\nassert cache.get(1) == 1\ncache.put(3, 3)  # evicts key 2\nassert cache.get(2) == -1"
+        }
+      ]
+    },
+    "sorting": {
+      "easy": [
+        {
+          "prompt": "Implement bubble sort. Write a function `bubble_sort(arr)` that sorts a list of numbers in ascending order.",
+          "solution": "def bubble_sort(arr):\n    n = len(arr)\n    for i in range(n):\n        for j in range(0, n - i - 1):\n            if arr[j] > arr[j + 1]:\n                arr[j], arr[j + 1] = arr[j + 1], arr[j]\n    return arr\n\nassert bubble_sort([64, 34, 25, 12, 22, 11, 90]) == [11, 12, 22, 25, 34, 64, 90]",
+          "hint": "Repeatedly swap adjacent elements if they are in the wrong order."
+        }
+      ],
+      "medium": [
+        {
+          "prompt": "Implement merge sort. Write a function `merge_sort(arr)` that returns a new sorted list.",
+          "solution": "def merge_sort(arr):\n    if len(arr) <= 1:\n        return arr\n    mid = len(arr) // 2\n    left = merge_sort(arr[:mid])\n    right = merge_sort(arr[mid:])\n    return merge(left, right)\n\ndef merge(left, right):\n    result = []\n    i = j = 0\n    while i < len(left) and j < len(right):\n        if left[i] <= right[j]:\n            result.append(left[i])\n            i += 1\n        else:\n            result.append(right[j])\n            j += 1\n    result.extend(left[i:])\n    result.extend(right[j:])\n    return result\n\nassert merge_sort([38, 27, 43, 3, 9, 82, 10]) == [3, 9, 10, 27, 38, 43, 82]"
+        }
+      ],
+      "hard": [
+        {
+          "prompt": "Implement quicksort with the Lomuto partition scheme. Write `quicksort(arr)` that sorts in place. Then write a separate function `kth_smallest(arr, k)` that uses the partition logic to find the k-th smallest element in O(n) average time (quickselect).",
+          "solution": "def partition(arr, low, high):\n    pivot = arr[high]\n    i = low - 1\n    for j in range(low, high):\n        if arr[j] <= pivot:\n            i += 1\n            arr[i], arr[j] = arr[j], arr[i]\n    arr[i + 1], arr[high] = arr[high], arr[i + 1]\n    return i + 1\n\ndef quicksort(arr, low=0, high=None):\n    if high is None:\n        high = len(arr) - 1\n    if low < high:\n        pi = partition(arr, low, high)\n        quicksort(arr, low, pi - 1)\n        quicksort(arr, pi + 1, high)\n    return arr\n\ndef kth_smallest(arr, k):\n    low, high = 0, len(arr) - 1\n    k -= 1  # 0-indexed\n    while low <= high:\n        pi = partition(arr, low, high)\n        if pi == k:\n            return arr[pi]\n        elif pi < k:\n            low = pi + 1\n        else:\n            high = pi - 1\n\n# Tests\nassert quicksort([10, 7, 8, 9, 1, 5]) == [1, 5, 7, 8, 9, 10]\nassert kth_smallest([7, 10, 4, 3, 20, 15], 3) == 7"
+        }
+      ]
+    },
+    "searching": {
+      "easy": [
+        {
+          "prompt": "Write a function `linear_search(arr, target)` that returns the index of `target` in `arr`, or `-1` if not found.",
+          "solution": "def linear_search(arr, target):\n    for i, val in enumerate(arr):\n        if val == target:\n            return i\n    return -1\n\nassert linear_search([4, 2, 7, 1, 9], 7) == 2\nassert linear_search([4, 2, 7, 1, 9], 5) == -1",
+          "hint": "Loop through each element and compare to the target."
+        }
+      ],
+      "medium": [
+        {
+          "prompt": "Write a function `binary_search(arr, target)` that returns the index of `target` in a **sorted** list, or `-1` if not found. Use the iterative approach.",
+          "solution": "def binary_search(arr, target):\n    low, high = 0, len(arr) - 1\n    while low <= high:\n        mid = (low + high) // 2\n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            low = mid + 1\n        else:\n            high = mid - 1\n    return -1\n\nassert binary_search([1, 3, 5, 7, 9, 11], 7) == 3\nassert binary_search([1, 3, 5, 7, 9, 11], 4) == -1"
+        }
+      ],
+      "hard": [
+        {
+          "prompt": "Write a function `search_rotated(nums, target)` that searches for a target in a sorted array that has been rotated at an unknown pivot (e.g. `[4,5,6,7,0,1,2]`). Return the index or `-1`. Must run in O(log n).",
+          "solution": "def search_rotated(nums, target):\n    low, high = 0, len(nums) - 1\n    while low <= high:\n        mid = (low + high) // 2\n        if nums[mid] == target:\n            return mid\n        # Left half is sorted\n        if nums[low] <= nums[mid]:\n            if nums[low] <= target < nums[mid]:\n                high = mid - 1\n            else:\n                low = mid + 1\n        # Right half is sorted\n        else:\n            if nums[mid] < target <= nums[high]:\n                low = mid + 1\n            else:\n                high = mid - 1\n    return -1\n\nassert search_rotated([4, 5, 6, 7, 0, 1, 2], 0) == 4\nassert search_rotated([4, 5, 6, 7, 0, 1, 2], 3) == -1"
+        }
+      ]
+    },
+    "recursion": {
+      "easy": [
+        {
+          "prompt": "Write a recursive function `factorial(n)` that returns `n!`. Handle the base case of `n == 0`.",
+          "solution": "def factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n - 1)\n\nassert factorial(5) == 120\nassert factorial(0) == 1",
+          "hint": "Base case: `factorial(0) = 1`. Recursive case: `n * factorial(n - 1)`."
+        }
+      ],
+      "medium": [
+        {
+          "prompt": "Write a recursive function `flatten(nested_list)` that takes an arbitrarily nested list and returns a flat list of all values.\n\nExample: `flatten([1, [2, [3, 4], 5], 6])` → `[1, 2, 3, 4, 5, 6]`",
+          "solution": "def flatten(nested_list):\n    result = []\n    for item in nested_list:\n        if isinstance(item, list):\n            result.extend(flatten(item))\n        else:\n            result.append(item)\n    return result\n\nassert flatten([1, [2, [3, 4], 5], 6]) == [1, 2, 3, 4, 5, 6]"
+        }
+      ],
+      "hard": [
+        {
+          "prompt": "Write a function `generate_permutations(s)` that returns all permutations of a string using recursion (no `itertools`). Return a list of strings sorted lexicographically.",
+          "solution": "def generate_permutations(s):\n    if len(s) <= 1:\n        return [s]\n    result = []\n    for i, ch in enumerate(s):\n        remaining = s[:i] + s[i+1:]\n        for perm in generate_permutations(remaining):\n            result.append(ch + perm)\n    return sorted(set(result))\n\nassert generate_permutations('abc') == ['abc', 'acb', 'bac', 'bca', 'cab', 'cba']"
+        }
+      ]
+    },
+    "string_manipulation": {
+      "easy": [
+        {
+          "prompt": "Write a function `is_palindrome(s)` that checks if a string reads the same forwards and backwards (case-insensitive, ignoring spaces).",
+          "solution": "def is_palindrome(s):\n    cleaned = s.lower().replace(' ', '')\n    return cleaned == cleaned[::-1]\n\nassert is_palindrome('racecar') == True\nassert is_palindrome('Race Car') == True\nassert is_palindrome('hello') == False",
+          "hint": "Clean the string first (lowercase, remove spaces), then compare to its reverse."
+        }
+      ],
+      "medium": [
+        {
+          "prompt": "Write a function `are_anagrams(s1, s2)` that returns `True` if two strings are anagrams (same letters, different order). Case-insensitive, ignore spaces. Do **not** use `sorted()`.",
+          "solution": "def are_anagrams(s1, s2):\n    def char_count(s):\n        counts = {}\n        for ch in s.lower().replace(' ', ''):\n            counts[ch] = counts.get(ch, 0) + 1\n        return counts\n    return char_count(s1) == char_count(s2)\n\nassert are_anagrams('listen', 'silent') == True\nassert are_anagrams('hello', 'world') == False"
+        }
+      ],
+      "hard": [
+        {
+          "prompt": "Write a function `longest_substring_no_repeat(s)` that returns the length of the longest substring without repeating characters. Must run in O(n) time.",
+          "solution": "def longest_substring_no_repeat(s):\n    seen = {}\n    start = 0\n    max_len = 0\n    for end, ch in enumerate(s):\n        if ch in seen and seen[ch] >= start:\n            start = seen[ch] + 1\n        seen[ch] = end\n        max_len = max(max_len, end - start + 1)\n    return max_len\n\nassert longest_substring_no_repeat('abcabcbb') == 3\nassert longest_substring_no_repeat('bbbbb') == 1\nassert longest_substring_no_repeat('pwwkew') == 3"
+        }
+      ]
+    },
+    "math_and_logic": {
+      "easy": [
+        {
+          "prompt": "Write a function `is_prime(n)` that returns `True` if `n` is a prime number.",
+          "solution": "def is_prime(n):\n    if n < 2:\n        return False\n    for i in range(2, int(n**0.5) + 1):\n        if n % i == 0:\n            return False\n    return True\n\nassert is_prime(17) == True\nassert is_prime(4) == False\nassert is_prime(1) == False",
+          "hint": "Only check divisors up to the square root of n."
+        }
+      ],
+      "medium": [
+        {
+          "prompt": "Write a function `gcd(a, b)` using the Euclidean algorithm (no `math.gcd`). Then write `lcm(a, b)` using your `gcd` function.",
+          "solution": "def gcd(a, b):\n    while b:\n        a, b = b, a % b\n    return a\n\ndef lcm(a, b):\n    return abs(a * b) // gcd(a, b)\n\nassert gcd(48, 18) == 6\nassert lcm(4, 6) == 12"
+        }
+      ],
+      "hard": [
+        {
+          "prompt": "Write a function `sieve_of_eratosthenes(n)` that returns all prime numbers up to `n` using the Sieve of Eratosthenes algorithm. Then write `prime_factorization(n)` that returns the prime factors of `n` as a sorted list (with repeats).",
+          "solution": "def sieve_of_eratosthenes(n):\n    is_prime = [True] * (n + 1)\n    is_prime[0] = is_prime[1] = False\n    for i in range(2, int(n**0.5) + 1):\n        if is_prime[i]:\n            for j in range(i*i, n + 1, i):\n                is_prime[j] = False\n    return [i for i in range(n + 1) if is_prime[i]]\n\ndef prime_factorization(n):\n    factors = []\n    d = 2\n    while d * d <= n:\n        while n % d == 0:\n            factors.append(d)\n            n //= d\n        d += 1\n    if n > 1:\n        factors.append(n)\n    return factors\n\nassert sieve_of_eratosthenes(20) == [2, 3, 5, 7, 11, 13, 17, 19]\nassert prime_factorization(60) == [2, 2, 3, 5]"
+        }
+      ]
+    }
+  }
+}
