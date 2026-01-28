@@ -25,6 +25,6 @@ RUN userdel -r node 2>/dev/null || true && \
     chown -R codex:codex /home/codex
 
 # Install Codex CLI
-RUN npm install -g @openai/codex@0.80.0
+RUN npm install -g @openai/codex@0.87.0
 
 USER codex
