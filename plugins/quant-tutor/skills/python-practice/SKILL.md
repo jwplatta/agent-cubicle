@@ -1,5 +1,5 @@
 ---
-name: python-tutor
+name: python-practice
 description: Generate Jupyter notebook practice challenges for Python. Use when the user wants practice problems, coding exercises, study notebooks, or drill questions for pandas or algorithms.
 allowed-tools: Read, Grep, Glob, Write, Bash, AskUserQuestion
 ---
@@ -15,14 +15,20 @@ Generate a Jupyter notebook filled with practice challenges and questions. Chall
    - **Difficulty**: easy, medium, or hard.
    - **Number of questions**: How many challenges to include (default 10).
    - **Output directory**: Where to save the notebook. Default is the current working directory.
+   - **Previous exercises folder** (optional): Path to a folder containing previous practice notebooks. If provided, scan these notebooks to avoid repeating exact questions. You may generate the same *type* of question but must vary the data, parameters, or scenario to ensure uniqueness.
 
-2. **Generate varied question data** using the helper scripts (see [Scripts](#scripts) below). For every notebook:
+2. **Check for previous exercises** (if folder provided):
+   - Scan notebooks in the previous exercises folder for question prompts.
+   - Extract the core challenge type from each (e.g., "filter DataFrame by condition", "implement binary search").
+   - When generating new questions, avoid repeating the exact same prompt. You may reuse the same question *type* but must change the data, column names, values, or scenario to make it fresh.
+
+3. **Generate varied question data** using the helper scripts (see [Scripts](#scripts) below). For every notebook:
    - Run `random_tickers.py` to pick a fresh set of tickers for the session.
    - Run `fetch_price_data.py` to get real market data for those tickers. Use the `--format code` or `--format returns` flag to get a Python snippet you can embed in the notebook setup cell.
    - Run `random_data.py` to generate random numbers, date ranges, or messy DataFrames as needed by the questions.
    - Vary the data in each question so notebooks are never identical.
 
-3. **Build the notebook** using `generate_notebook.py`:
+4. **Build the notebook** using `generate_notebook.py`:
    - **Option A — from the question bank**: Use `--bank` to pull pre-written questions and randomize:
      ```bash
      python scripts/generate_notebook.py \
@@ -36,11 +42,11 @@ Generate a Jupyter notebook filled with practice challenges and questions. Chall
        --category pandas --difficulty medium \
        --output ./notebooks < /tmp/questions.json
      ```
-   - Each question object must have `prompt` (str) and `solution` (str). Optional fields: `hint` (str), `setup` (str, per-question code cell), `subcategory` (str).
+   - Each question object must have `prompt` (str) and `solution` (str). Optional fields: `hint` (str, will be rendered in a collapsed `<details>` tag), `setup` (str, per-question code cell), `subcategory` (str).
 
-4. **Customize the setup cell** — replace the template's sample data with the real market data fetched in step 2. Use the output of `fetch_price_data.py --format code` or `--format returns` as the setup cell content.
+5. **Customize the setup cell** — replace the template's sample data with the real market data fetched in step 3. Use the output of `fetch_price_data.py --format code` or `--format returns` as the setup cell content.
 
-5. **Confirm** the notebook path to the user when finished.
+6. **Confirm** the notebook path to the user when finished.
 
 ## Notebook Structure
 
@@ -52,9 +58,9 @@ Each generated notebook must follow this structure:
    - A **markdown cell** with the challenge prompt, numbered (e.g. "### Challenge 1"). Include:
      - A clear problem statement
      - Any sample data or expected output
-     - Hints for easy/medium; no hints for hard
+     - For easy/medium: a **hidden hint** wrapped in a `<details><summary>💡 Hint</summary>...</details>` tag (initially collapsed). No hints for hard.
    - An **empty code cell** for the user to write their solution.
-   - A **hidden solution cell** wrapped in a markdown `<details>` tag so the user can reveal it.
+   - A **hidden solution cell** wrapped in a markdown `<details><summary>✅ Solution</summary>...</details>` tag so the user can reveal it.
 
 ## Scripts
 
