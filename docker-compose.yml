@@ -19,6 +19,10 @@ services:
       - ~/.gitconfig:/home/claude/.gitconfig.host:ro
       - ./mcp/obsidian-mcp:/home/claude/.config/obsidian-mcp
       - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
+      - ./hooks:/home/claude/.claude/hooks:ro
+      - ./skills:/home/claude/.claude/skills:ro
+      - ./commands:/home/claude/.claude/commands:ro
+      - ./agents:/home/claude/.claude/agents:ro
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - TODOIST_TOKEN=${TODOIST_TOKEN}
@@ -53,6 +57,10 @@ services:
       - ./bin/entry-base.sh:/entry-base.sh:ro
       - ./config/obsidian-mcp:/home/claude/.config/obsidian-mcp
       - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
+      - ./skills:/home/claude/.claude/skills:ro
+      - ./commands:/home/claude/.claude/commands:ro
+      - ./agents:/home/claude/.claude/agents:ro
+      - ./hooks:/home/claude/.claude/hooks:ro
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - TODOIST_TOKEN=${TODOIST_TOKEN}
@@ -87,6 +95,10 @@ services:
       - ./bin/entry-base.sh:/entry-base.sh:ro
       - ./config/obsidian-mcp:/home/claude/.config/obsidian-mcp
       - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
+      - ./skills:/home/claude/.claude/skills:ro
+      - ./commands:/home/claude/.claude/commands:ro
+      - ./agents:/home/claude/.claude/agents:ro
+      - ./hooks:/home/claude/.claude/hooks:ro
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - TODOIST_TOKEN=${TODOIST_TOKEN}
@@ -121,6 +133,10 @@ services:
       - ./bin/entry-base.sh:/entry-base.sh:ro
       - ./config/obsidian-mcp:/home/claude/.config/obsidian-mcp
       - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
+      - ./skills:/home/claude/.claude/skills:ro
+      - ./commands:/home/claude/.claude/commands:ro
+      - ./agents:/home/claude/.claude/agents:ro
+      - ./hooks:/home/claude/.claude/hooks:ro
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - TODOIST_TOKEN=${TODOIST_TOKEN}
@@ -183,7 +199,8 @@ services:
       - /Users/jplatta/.config/gh:/home/codex/.config/gh
       - ./config/ssh/id_ed25519:/home/codex/.ssh/id_ed25519:ro
       - ~/.gitconfig:/home/codex/.gitconfig.host:ro
-      - ./config/shared/BASE_AGENT.md:/home/codex/.codex/AGENTS.md
+      - ./config/shared/BASE_AGENT.md:/home/codex/.codex/AGENTS.md:ro
+      - ./skills:/home/codex/.codex/skills:ro
       - ./bin/entry-base.sh:/entry-base.sh:ro
       - ./config/obsidian-mcp:/home/codex/.config/obsidian-mcp
       - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
@@ -218,7 +235,8 @@ services:
       - /Users/jplatta/repos/second_brain/obsidian-mcp:/obsidian-mcp
       - ./config/ssh/id_ed25519:/home/codex/.ssh/id_ed25519:ro
       - ~/.gitconfig:/home/codex/.gitconfig.host:ro
-      - ./config/shared/BASE_AGENT.md:/home/codex/.codex/AGENTS.md
+      - ./skills:/home/codex/.codex/skills:ro
+      - ./config/shared/BASE_AGENT.md:/home/codex/.codex/AGENTS.md:ro
       - ./bin/entry-base.sh:/entry-base.sh:ro
     environment:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
