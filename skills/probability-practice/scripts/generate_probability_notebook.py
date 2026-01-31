@@ -32,6 +32,20 @@ except ImportError:
 from probability_generators import JointTableGenerator
 from fraction_utils import simplify_fraction, format_probability
 
+# Valid question bank categories
+VALID_CATEGORIES = [
+    'counting',
+    'marginals',
+    'joint',
+    'conditional',
+    'bayes',
+    'independence',
+    'total_probability',
+    'expectation',
+    'variance',
+    'covariance'
+]
+
 
 class NotebookGenerator:
     """Generate probability practice notebooks from question bank."""
@@ -75,7 +89,11 @@ class NotebookGenerator:
             List of matching questions
         """
         if category not in self.bank:
-            raise ValueError(f"Category '{category}' not found in bank")
+            valid_cats = ', '.join(VALID_CATEGORIES)
+            raise ValueError(
+                f"Category '{category}' not found in bank.\n"
+                f"Valid categories: {valid_cats}"
+            )
 
         questions = []
 
@@ -109,6 +127,8 @@ class NotebookGenerator:
         # Call appropriate generator
         if generator_name == 'joint_table_2x2':
             data = self.generator.generate_2x2(**generator_params)
+        elif generator_name == 'joint_table_3x3':
+            data = self.generator.generate_3x3(**generator_params)
         else:
             raise ValueError(f"Unknown generator: {generator_name}")
 
@@ -220,6 +240,83 @@ class NotebookGenerator:
                 values['independence_conclusion'] = "A and B are independent."
             else:
                 values['independence_conclusion'] = "A and B are NOT independent."
+
+        # Counting operations
+        if query_type == 'count_union':
+            union_count = data['joint_AB'] + data['joint_A_notB'] + data['joint_notA_B']
+            values['union_count'] = union_count
+
+        if query_type == 'combinations':
+            n = data['total']
+            k = 2
+            values['minus_2'] = n - 2
+            values['minus_1'] = n - 1
+            values['combination_result'] = (n * (n - 1)) // 2
+
+        if query_type == 'permutations_all':
+            import math
+            values['factorial_result'] = math.factorial(data['total'])
+
+        # Joint probability operations
+        if query_type == 'joint_A_notB':
+            values['simplified'] = format_probability(data['joint_A_notB'], data['total'])
+
+        if query_type == 'joint_notA_notB':
+            values['simplified'] = format_probability(data['joint_notA_notB'], data['total'])
+
+        # Expectation operations
+        if query_type == 'expectation_indicator_A':
+            values['simplified'] = format_probability(data['marginal_A'], data['total'])
+
+        if query_type == 'expectation_scaled_indicator':
+            values['expectation_result'] = format_probability(10 * data['marginal_B'], data['total'])
+
+        if query_type == 'expectation_sum':
+            values['expectation_sum'] = data['marginal_A'] + data['marginal_B']
+
+        if query_type == 'expectation_custom_rv':
+            exactly_one = data['joint_A_notB'] + data['joint_notA_B']
+            values['exactly_one'] = exactly_one
+            values['ez_term1'] = 100 * data['joint_AB']
+            values['ez_term2'] = 50 * exactly_one
+            values['expectation_z'] = 100 * data['joint_AB'] + 50 * exactly_one
+
+        # Variance operations
+        if query_type == 'variance_indicator':
+            p = data['marginal_A'] / data['total']
+            variance = p * (1 - p)
+            values['variance_result'] = f"{variance:.4f}"
+
+        if query_type == 'variance_sum_independent':
+            p_a = data['marginal_A'] / data['total']
+            p_b = data['marginal_B'] / data['total']
+            var_x = p_a * (1 - p_a)
+            var_y = p_b * (1 - p_b)
+            values['var_x'] = f"{var_x:.4f}"
+            values['var_y'] = f"{var_y:.4f}"
+            values['var_sum'] = f"{var_x + var_y:.4f}"
+
+        # Covariance operations
+        if 'covariance' in query_type:
+            product = data['marginal_A'] * data['marginal_B']
+            joint_times_total = data['joint_AB'] * data['total']
+            values['product_num'] = product
+            values['total_squared'] = data['total'] * data['total']
+
+            # Covariance calculation
+            e_xy = data['joint_AB'] / data['total']
+            e_x = data['marginal_A'] / data['total']
+            e_y = data['marginal_B'] / data['total']
+            cov = e_xy - e_x * e_y
+            values['covariance_result'] = f"{cov:.4f}"
+
+            if query_type == 'covariance_independence_test':
+                if product == joint_times_total:
+                    values['independence_test'] = "A and B ARE independent."
+                    values['covariance_conclusion'] = "Since A and B are independent, Cov(X,Y) = 0 ✓"
+                else:
+                    values['independence_test'] = "A and B are NOT independent."
+                    values['covariance_conclusion'] = "Since A and B are dependent, Cov(X,Y) ≠ 0"
 
         # Fill template
         solution = solution_template
@@ -338,8 +435,8 @@ def main():
     )
     parser.add_argument(
         '--category',
-        choices=['marginals', 'conditional', 'bayes', 'independence'],
-        help='Question category (marginals, conditional, bayes, or independence)'
+        choices=VALID_CATEGORIES,
+        help=f'Question category. Valid options: {", ".join(VALID_CATEGORIES)}'
     )
     parser.add_argument(
         '--difficulty',
