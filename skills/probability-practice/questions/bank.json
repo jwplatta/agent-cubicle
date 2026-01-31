@@ -1,8 +1,71 @@
 {
   "counting": {
-    "easy": [],
-    "medium": [],
-    "hard": []
+    "easy": [
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nHow many outcomes are in the sample space?",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 20,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "sample_space",
+        "solution_template": "The sample space contains all possible outcomes. From the table, the total count is {{total}}.\n\nTherefore, |S| = {{total}} outcomes.",
+        "hint": "The sample space size is the grand total (sum of all cells).",
+        "topics": ["sample_space", "counting"]
+      },
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nHow many outcomes satisfy the condition \"A and B both occur\"?",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 30,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "count_joint",
+        "solution_template": "Outcomes where both A and B occur are in the cell (A, B), which has {{joint_AB}} outcomes.",
+        "hint": "Look at the intersection cell (A ∩ B) in the table.",
+        "topics": ["counting", "joint_events"]
+      }
+    ],
+    "medium": [
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nHow many outcomes satisfy \"A or B (or both)\"?",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 40,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "count_union",
+        "solution_template": "Outcomes with A or B are in cells (A,B), (A,¬B), and (¬A,B).\n\nCount = {{joint_AB}} + {{joint_A_notB}} + {{joint_notA_B}} = {{union_count}}",
+        "hint": "Use inclusion-exclusion: count all cells except (¬A, ¬B).",
+        "topics": ["counting", "union", "inclusion_exclusion"]
+      },
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nIf you randomly select 2 outcomes from the sample space without replacement, how many ways can you do this?",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 20,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "combinations",
+        "solution_template": "This is a combination problem: choosing 2 items from {{total}} without regard to order.\n\nC({{total}}, 2) = {{total}}! / (2! × {{minus_2}}!) = ({{total}} × {{minus_1}}) / 2 = {{combination_result}}",
+        "hint": "Use the combination formula C(n,k) = n!/(k!(n-k)!). Here n={{total}}, k=2.",
+        "topics": ["counting", "combinations"]
+      }
+    ],
+    "hard": [
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nSuppose you arrange all {{total}} outcomes in a line. How many such arrangements are possible?",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 10,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "permutations_all",
+        "solution_template": "The number of ways to arrange {{total}} distinct outcomes is {{total}}! = {{factorial_result}}",
+        "hint": "This is a permutation of all {{total}} items: {{total}}!",
+        "topics": ["counting", "permutations", "factorial"]
+      }
+    ]
   },
   "marginals": {
     "easy": [
@@ -145,8 +208,58 @@
     ]
   },
   "joint": {
-    "easy": [],
-    "medium": [],
+    "easy": [
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nCompute P(A ∩ B).",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 20,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "joint_AB",
+        "solution_template": "P(A ∩ B) = {{joint_AB}}/{{total}} = {{simplified}}",
+        "hint": "Look at the cell where row A and column B intersect.",
+        "topics": ["joint_probability"]
+      },
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nWhat is P(A ∩ ¬B)?",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 30,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "joint_A_notB",
+        "solution_template": "P(A ∩ ¬B) = {{joint_A_notB}}/{{total}} = {{simplified}}",
+        "hint": "Find the cell at row A and column ¬B.",
+        "topics": ["joint_probability"]
+      }
+    ],
+    "medium": [
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nVerify that P(A ∩ B) = P(A) × P(B | A) using the table data.",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 40,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "joint_multiplication_rule",
+        "solution_template": "P(A) = {{marginal_A}}/{{total}}\nP(B | A) = {{joint_AB}}/{{marginal_A}}\n\nP(A) × P(B | A) = ({{marginal_A}}/{{total}}) × ({{joint_AB}}/{{marginal_A}}) = {{joint_AB}}/{{total}}\n\nP(A ∩ B) = {{joint_AB}}/{{total}} ✓\n\nBoth equal {{simplified}}, verifying the multiplication rule.",
+        "hint": "Use the multiplication rule: P(A ∩ B) = P(A) × P(B|A). The marginal_A terms should cancel.",
+        "topics": ["joint_probability", "multiplication_rule", "conditional_probability"]
+      },
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nCompute P(¬A ∩ ¬B).",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 50,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "joint_notA_notB",
+        "solution_template": "P(¬A ∩ ¬B) = {{joint_notA_notB}}/{{total}} = {{simplified}}",
+        "hint": "Look at the cell where both complements occur (row ¬A, column ¬B).",
+        "topics": ["joint_probability", "complement"]
+      }
+    ],
     "hard": []
   },
   "conditional": {
@@ -438,22 +551,149 @@
   },
   "total_probability": {
     "easy": [],
-    "medium": [],
+    "medium": [
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nUse the law of total probability to compute P(B) from P(B | A) and P(B | ¬A):\n\nP(B) = P(B | A) × P(A) + P(B | ¬A) × P(¬A)",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 40,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "total_probability_B",
+        "solution_template": "P(B | A) = {{joint_AB}}/{{marginal_A}}\nP(A) = {{marginal_A}}/{{total}}\nP(B | ¬A) = {{joint_notA_B}}/{{marginal_notA}}\nP(¬A) = {{marginal_notA}}/{{total}}\n\nP(B) = ({{joint_AB}}/{{marginal_A}}) × ({{marginal_A}}/{{total}}) + ({{joint_notA_B}}/{{marginal_notA}}) × ({{marginal_notA}}/{{total}})\n     = {{joint_AB}}/{{total}} + {{joint_notA_B}}/{{total}}\n     = {{marginal_B}}/{{total}}\n\nVerify: From the table, P(B) = {{marginal_B}}/{{total}} ✓",
+        "hint": "Partition the sample space into A and ¬A. Weight each conditional probability by how likely that partition is.",
+        "topics": ["law_of_total_probability", "conditional_probability", "marginal_probability"]
+      },
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nExpress P(A) using the law of total probability by partitioning on B:\n\nP(A) = P(A | B) × P(B) + P(A | ¬B) × P(¬B)",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 50,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "total_probability_A",
+        "solution_template": "P(A | B) = {{joint_AB}}/{{marginal_B}}\nP(B) = {{marginal_B}}/{{total}}\nP(A | ¬B) = {{joint_A_notB}}/{{marginal_notB}}\nP(¬B) = {{marginal_notB}}/{{total}}\n\nP(A) = ({{joint_AB}}/{{marginal_B}}) × ({{marginal_B}}/{{total}}) + ({{joint_A_notB}}/{{marginal_notB}}) × ({{marginal_notB}}/{{total}})\n     = {{joint_AB}}/{{total}} + {{joint_A_notB}}/{{total}}\n     = {{marginal_A}}/{{total}}\n\nVerify: From the table, P(A) = {{marginal_A}}/{{total}} ✓",
+        "hint": "Partition on B and ¬B. The sum should equal the marginal probability of A.",
+        "topics": ["law_of_total_probability", "conditional_probability", "marginal_probability"]
+      }
+    ],
     "hard": []
   },
   "expectation": {
-    "easy": [],
-    "medium": [],
+    "easy": [
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nLet X be an indicator variable for event A (X=1 if A occurs, X=0 otherwise). Compute E[X].",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 20,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "expectation_indicator_A",
+        "solution_template": "X = 1 with probability P(A) = {{marginal_A}}/{{total}}\nX = 0 with probability P(¬A) = {{marginal_notA}}/{{total}}\n\nE[X] = 1 × P(A) + 0 × P(¬A) = P(A) = {{marginal_A}}/{{total}} = {{simplified}}\n\nKey insight: The expected value of an indicator variable equals the probability of the event.",
+        "hint": "For an indicator variable, E[I_A] = P(A).",
+        "topics": ["expectation", "indicator_variable"]
+      },
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nLet Y be a random variable that equals 10 if B occurs and 0 otherwise. Compute E[Y].",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 30,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "expectation_scaled_indicator",
+        "solution_template": "Y = 10 with probability P(B) = {{marginal_B}}/{{total}}\nY = 0 with probability P(¬B) = {{marginal_notB}}/{{total}}\n\nE[Y] = 10 × ({{marginal_B}}/{{total}}) + 0 × ({{marginal_notB}}/{{total}}) = 10 × {{marginal_B}}/{{total}} = {{expectation_result}}",
+        "hint": "E[cX] = c × E[X]. Here, Y = 10 × I_B, so E[Y] = 10 × P(B).",
+        "topics": ["expectation", "linearity"]
+      }
+    ],
+    "medium": [
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nLet X and Y be indicator variables for events A and B respectively. Compute E[X + Y] using linearity of expectation.",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 40,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "expectation_sum",
+        "solution_template": "E[X] = P(A) = {{marginal_A}}/{{total}}\nE[Y] = P(B) = {{marginal_B}}/{{total}}\n\nBy linearity of expectation:\nE[X + Y] = E[X] + E[Y] = {{marginal_A}}/{{total}} + {{marginal_B}}/{{total}} = {{expectation_sum}}/{{total}}",
+        "hint": "Linearity: E[X + Y] = E[X] + E[Y], even if X and Y are dependent!",
+        "topics": ["expectation", "linearity", "indicator_variable"]
+      },
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nDefine a random variable Z that takes value 100 if both A and B occur, 50 if exactly one occurs, and 0 if neither occurs. Compute E[Z].",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 50,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "expectation_custom_rv",
+        "solution_template": "P(Z = 100) = P(A ∩ B) = {{joint_AB}}/{{total}}\nP(Z = 50) = P(A ∩ ¬B) + P(¬A ∩ B) = {{joint_A_notB}}/{{total}} + {{joint_notA_B}}/{{total}} = {{exactly_one}}/{{total}}\nP(Z = 0) = P(¬A ∩ ¬B) = {{joint_notA_notB}}/{{total}}\n\nE[Z] = 100 × ({{joint_AB}}/{{total}}) + 50 × ({{exactly_one}}/{{total}}) + 0 × ({{joint_notA_notB}}/{{total}})\n     = {{ez_term1}}/{{total}} + {{ez_term2}}/{{total}}\n     = {{expectation_z}}/{{total}}",
+        "hint": "Compute E[Z] = Σ z × P(Z=z) for each possible value of Z.",
+        "topics": ["expectation", "discrete_rv"]
+      }
+    ],
     "hard": []
   },
   "variance": {
-    "easy": [],
-    "medium": [],
+    "easy": [
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nLet X be an indicator variable for event A. Compute Var(X) using the formula Var(X) = E[X²] - (E[X])².",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 20,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "variance_indicator",
+        "solution_template": "For an indicator variable X:\nE[X] = P(A) = {{marginal_A}}/{{total}}\nE[X²] = 1² × P(A) + 0² × P(¬A) = P(A) = {{marginal_A}}/{{total}}\n\nVar(X) = E[X²] - (E[X])² = {{marginal_A}}/{{total}} - ({{marginal_A}}/{{total}})² = {{variance_result}}\n\nFor Bernoulli(p): Var(X) = p(1-p) = ({{marginal_A}}/{{total}}) × ({{marginal_notA}}/{{total}}) = {{variance_result}}",
+        "hint": "For an indicator variable, Var(X) = P(A) × P(¬A) = p(1-p).",
+        "topics": ["variance", "indicator_variable", "bernoulli"]
+      }
+    ],
+    "medium": [
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nDefine X as an indicator for A and Y as an indicator for B. If X and Y were independent, what would Var(X + Y) equal?",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 40,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "variance_sum_independent",
+        "solution_template": "Var(X) = P(A) × P(¬A) = ({{marginal_A}}/{{total}}) × ({{marginal_notA}}/{{total}}) = {{var_x}}\nVar(Y) = P(B) × P(¬B) = ({{marginal_B}}/{{total}}) × ({{marginal_notB}}/{{total}}) = {{var_y}}\n\nIf X and Y are independent:\nVar(X + Y) = Var(X) + Var(Y) = {{var_x}} + {{var_y}} = {{var_sum}}",
+        "hint": "For independent variables, Var(X + Y) = Var(X) + Var(Y).",
+        "topics": ["variance", "independence", "linearity"]
+      }
+    ],
     "hard": []
   },
   "covariance": {
     "easy": [],
-    "medium": [],
-    "hard": []
+    "medium": [
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nLet X and Y be indicator variables for events A and B respectively. Compute Cov(X, Y) = E[XY] - E[X]E[Y].",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 40,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "covariance_indicators",
+        "solution_template": "E[X] = P(A) = {{marginal_A}}/{{total}}\nE[Y] = P(B) = {{marginal_B}}/{{total}}\nE[XY] = P(X=1 and Y=1) = P(A ∩ B) = {{joint_AB}}/{{total}}\n\nCov(X, Y) = E[XY] - E[X]E[Y]\n          = {{joint_AB}}/{{total}} - ({{marginal_A}}/{{total}}) × ({{marginal_B}}/{{total}})\n          = {{joint_AB}}/{{total}} - {{product_num}}/{{total_squared}}\n          = {{covariance_result}}\n\nNote: If A and B were independent, Cov(X,Y) = 0.",
+        "hint": "For indicators, E[XY] = P(both occur). Use Cov(X,Y) = E[XY] - E[X]E[Y].",
+        "topics": ["covariance", "indicator_variable", "independence"]
+      }
+    ],
+    "hard": [
+      {
+        "prompt_template": "Given the contingency table:\n\n{{table}}\n\nLet X and Y be indicators for A and B. Show that if A and B are independent, then Cov(X, Y) = 0. Verify using the table data.",
+        "generator": "joint_table_2x2",
+        "generator_params": {
+          "total": 60,
+          "ensure_simple_fractions": true
+        },
+        "query_type": "covariance_independence_test",
+        "solution_template": "First, test if A and B are independent:\nP(A ∩ B) = {{joint_AB}}/{{total}}\nP(A) × P(B) = ({{marginal_A}}/{{total}}) × ({{marginal_B}}/{{total}}) = {{product_num}}/{{total_squared}}\n\n{{independence_test}}\n\nNow compute Cov(X, Y):\nE[XY] = {{joint_AB}}/{{total}}\nE[X]E[Y] = {{product_num}}/{{total_squared}}\n\nCov(X, Y) = {{joint_AB}}/{{total}} - {{product_num}}/{{total_squared}} = {{covariance_result}}\n\n{{covariance_conclusion}}",
+        "hint": "Independence implies Cov(X,Y) = 0. Test P(A∩B) = P(A)×P(B) first.",
+        "topics": ["covariance", "independence", "correlation"]
+      }
+    ]
   }
 }
