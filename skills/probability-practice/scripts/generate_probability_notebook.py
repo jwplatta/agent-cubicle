@@ -62,15 +62,13 @@ class NotebookGenerator:
     def filter_questions(
         self,
         category: str,
-        subcategory: str = None,
         difficulty: str = None
     ) -> List[Dict]:
         """
-        Filter questions by category, subcategory, and difficulty.
+        Filter questions by category and difficulty.
 
         Args:
-            category: Main category (e.g., 'joint_probability')
-            subcategory: Optional subcategory (e.g., 'marginals')
+            category: Category (e.g., 'marginals', 'conditional', 'bayes', 'independence')
             difficulty: Optional difficulty ('easy', 'medium', 'hard')
 
         Returns:
@@ -81,35 +79,17 @@ class NotebookGenerator:
 
         questions = []
 
-        if subcategory:
-            # Filter specific subcategory
-            if subcategory not in self.bank[category]:
+        if difficulty:
+            # Specific difficulty within category
+            if difficulty not in self.bank[category]:
                 raise ValueError(
-                    f"Subcategory '{subcategory}' not found in '{category}'"
+                    f"Difficulty '{difficulty}' not found in '{category}'"
                 )
-
-            if difficulty:
-                # Specific difficulty within subcategory
-                if difficulty not in self.bank[category][subcategory]:
-                    raise ValueError(
-                        f"Difficulty '{difficulty}' not found in '{category}.{subcategory}'"
-                    )
-                questions = self.bank[category][subcategory][difficulty]
-            else:
-                # All difficulties in subcategory
-                for diff in self.bank[category][subcategory]:
-                    questions.extend(self.bank[category][subcategory][diff])
+            questions = self.bank[category][difficulty]
         else:
-            # All subcategories
-            for subcat in self.bank[category]:
-                if difficulty:
-                    # Specific difficulty across all subcategories
-                    if difficulty in self.bank[category][subcat]:
-                        questions.extend(self.bank[category][subcat][difficulty])
-                else:
-                    # All questions in category
-                    for diff in self.bank[category][subcat]:
-                        questions.extend(self.bank[category][subcat][diff])
+            # All difficulties in category
+            for diff in self.bank[category]:
+                questions.extend(self.bank[category][diff])
 
         return questions
 
@@ -254,7 +234,7 @@ class NotebookGenerator:
         questions: List[Dict],
         count: int,
         difficulty: str,
-        subcategories: List[str],
+        category: str,
         template_path: str = None
     ) -> nbformat.NotebookNode:
         """
@@ -264,7 +244,7 @@ class NotebookGenerator:
             questions: List of question dictionaries
             count: Number of questions to include
             difficulty: Difficulty level string
-            subcategories: List of subcategory names
+            category: Category name
             template_path: Path to template notebook (optional)
 
         Returns:
@@ -289,14 +269,24 @@ class NotebookGenerator:
 
         # Fill template placeholders
         date_str = datetime.now().strftime("%Y-%m-%d")
-        subcat_str = ", ".join(subcategories) if subcategories else "mixed"
+        category_str = category if category else "mixed"
 
+        # Remove example challenge cells (they're just for the template)
+        # Keep only cells that don't have "example" in their cell ID
+        filtered_cells = []
         for cell in nb.cells:
-            if cell.cell_type == 'markdown':
-                cell.source = cell.source.replace('{{difficulty}}', difficulty.title())
-                cell.source = cell.source.replace('{{date}}', date_str)
-                cell.source = cell.source.replace('{{count}}', str(len(sampled)))
-                cell.source = cell.source.replace('{{subcategories}}', subcat_str)
+            cell_id = cell.get('id', '')
+            # Keep cells that aren't part of the example challenge
+            if 'example' not in cell_id.lower():
+                # Replace placeholders in kept cells
+                if cell.cell_type == 'markdown':
+                    cell.source = cell.source.replace('{{difficulty}}', difficulty.title())
+                    cell.source = cell.source.replace('{{date}}', date_str)
+                    cell.source = cell.source.replace('{{count}}', str(len(sampled)))
+                    cell.source = cell.source.replace('{{category}}', category_str)
+                filtered_cells.append(cell)
+
+        nb.cells = filtered_cells
 
         # Add question cells
         for i, question in enumerate(sampled, 1):
@@ -348,12 +338,8 @@ def main():
     )
     parser.add_argument(
         '--category',
-        default='joint_probability',
-        help='Question category (default: joint_probability)'
-    )
-    parser.add_argument(
-        '--subcategory',
-        help='Question subcategory (optional, e.g., marginals, conditional)'
+        choices=['marginals', 'conditional', 'bayes', 'independence'],
+        help='Question category (marginals, conditional, bayes, or independence)'
     )
     parser.add_argument(
         '--difficulty',
@@ -400,7 +386,6 @@ def main():
     try:
         questions = gen.filter_questions(
             args.category,
-            args.subcategory,
             args.difficulty
         )
     except ValueError as e:
@@ -415,14 +400,13 @@ def main():
     print(f"Selecting {min(args.count, len(questions))} for notebook")
 
     # Create notebook
-    subcats = [args.subcategory] if args.subcategory else ['mixed']
     diff_str = args.difficulty if args.difficulty else 'mixed'
 
     nb = gen.create_notebook(
         questions,
         args.count,
         diff_str,
-        subcats,
+        args.category,
         template_path=args.template
     )
 
@@ -433,8 +417,8 @@ def main():
             filename += '.ipynb'
     else:
         date_str = datetime.now().strftime("%Y%m%d")
-        subcat_str = args.subcategory if args.subcategory else 'mixed'
-        filename = f"probability_{subcat_str}_{diff_str}_{date_str}.ipynb"
+        cat_str = args.category if args.category else 'mixed'
+        filename = f"probability_{cat_str}_{diff_str}_{date_str}.ipynb"
 
     output_path = Path(args.output) / filename
 
@@ -442,8 +426,7 @@ def main():
     gen.save_notebook(nb, output_path)
 
     print(f"\n✓ Generated notebook with {args.count} problems")
-    print(f"✓ Category: {args.category}")
-    print(f"✓ Subcategory: {args.subcategory or 'mixed'}")
+    print(f"✓ Category: {args.category or 'mixed'}")
     print(f"✓ Difficulty: {args.difficulty or 'mixed'}")
     print(f"\nOpen with: jupyter notebook {output_path}")
 
