@@ -236,3 +236,118 @@ class JointTableGenerator:
         table['scenario'] = scenario
 
         return table
+
+    def generate_3x3(
+        self,
+        total: int = 30,
+        ensure_simple_fractions: bool = True
+    ) -> Dict:
+        """
+        Generate a random 3×3 contingency table for three events A, B, C.
+
+        Structure:
+                    B∩C    B∩¬C   ¬B∩C   ¬B∩¬C   Total
+        A            *       *      *       *      ...
+        ¬A           *       *      *       *      ...
+        Total        ...     ...    ...     ...     N
+
+        Args:
+            total: Total count N (default: 30)
+            ensure_simple_fractions: If True, adjust counts for cleaner fractions
+
+        Returns:
+            Dictionary with cell counts, marginals, and formatted table string
+        """
+        if total < 8:
+            raise ValueError("Total must be at least 8 for 3x3 table (8 cells minimum)")
+
+        # Generate 8 random positive counts that sum to total
+        # Reserve 1 for each of 8 cells
+        remaining = total - 8
+        splits = sorted([0] + [random.randint(0, remaining) for _ in range(7)] + [remaining])
+
+        # 8 cells for A×B×C combinations
+        cells = {}
+        cells['ABC'] = splits[1] - splits[0] + 1
+        cells['AB_notC'] = splits[2] - splits[1] + 1
+        cells['A_notB_C'] = splits[3] - splits[2] + 1
+        cells['A_notB_notC'] = splits[4] - splits[3] + 1
+        cells['notA_B_C'] = splits[5] - splits[4] + 1
+        cells['notA_B_notC'] = splits[6] - splits[5] + 1
+        cells['notA_notB_C'] = splits[7] - splits[6] + 1
+        cells['notA_notB_notC'] = remaining - splits[7] + 1
+
+        # Verify sum
+        total_check = sum(cells.values())
+        assert total_check == total, f"Sum mismatch: {total_check} != {total}"
+        assert all(v > 0 for v in cells.values()), "Zero cell found"
+
+        # Calculate marginals
+        # P(A) = sum of all cells where A occurs
+        marginal_A = cells['ABC'] + cells['AB_notC'] + cells['A_notB_C'] + cells['A_notB_notC']
+        marginal_notA = cells['notA_B_C'] + cells['notA_B_notC'] + cells['notA_notB_C'] + cells['notA_notB_notC']
+
+        marginal_B = cells['ABC'] + cells['AB_notC'] + cells['notA_B_C'] + cells['notA_B_notC']
+        marginal_notB = cells['A_notB_C'] + cells['A_notB_notC'] + cells['notA_notB_C'] + cells['notA_notB_notC']
+
+        marginal_C = cells['ABC'] + cells['A_notB_C'] + cells['notA_B_C'] + cells['notA_notB_C']
+        marginal_notC = cells['AB_notC'] + cells['A_notB_notC'] + cells['notA_B_notC'] + cells['notA_notB_notC']
+
+        # Joint probabilities for pairs
+        joint_AB = cells['ABC'] + cells['AB_notC']
+        joint_AC = cells['ABC'] + cells['A_notB_C']
+        joint_BC = cells['ABC'] + cells['notA_B_C']
+
+        # Format table as markdown
+        table_str = self._format_3x3_table(cells, marginal_A, marginal_notA, marginal_B, marginal_notB, marginal_C, marginal_notC, total)
+
+        result = {
+            'total': total,
+            'table_str': table_str,
+            # Marginals
+            'marginal_A': marginal_A,
+            'marginal_notA': marginal_notA,
+            'marginal_B': marginal_B,
+            'marginal_notB': marginal_notB,
+            'marginal_C': marginal_C,
+            'marginal_notC': marginal_notC,
+            # All 8 joint probabilities
+            **cells,
+            # Pairwise joints
+            'joint_AB': joint_AB,
+            'joint_AC': joint_AC,
+            'joint_BC': joint_BC,
+        }
+
+        return result
+
+    def _format_3x3_table(
+        self,
+        cells: Dict,
+        marginal_A: int,
+        marginal_notA: int,
+        marginal_B: int,
+        marginal_notB: int,
+        marginal_C: int,
+        marginal_notC: int,
+        total: int
+    ) -> str:
+        """
+        Format a 3×3 table as markdown.
+
+        The table shows A/¬A as rows, and all B×C combinations as columns.
+        """
+        # Calculate column totals
+        col_BC = cells['ABC'] + cells['notA_B_C']
+        col_B_notC = cells['AB_notC'] + cells['notA_B_notC']
+        col_notB_C = cells['A_notB_C'] + cells['notA_notB_C']
+        col_notB_notC = cells['A_notB_notC'] + cells['notA_notB_notC']
+
+        table = f"""
+|        | B∩C | B∩¬C | ¬B∩C | ¬B∩¬C | Total |
+|--------|-----|------|------|-------|-------|
+| **A**  | {cells['ABC']:>3} | {cells['AB_notC']:>4} | {cells['A_notB_C']:>4} | {cells['A_notB_notC']:>5} | {marginal_A:>5} |
+| **¬A** | {cells['notA_B_C']:>3} | {cells['notA_B_notC']:>4} | {cells['notA_notB_C']:>4} | {cells['notA_notB_notC']:>5} | {marginal_notA:>5} |
+| **Total** | {col_BC:>3} | {col_B_notC:>4} | {col_notB_C:>4} | {col_notB_notC:>5} | {total:>5} |
+"""
+        return table.strip()
