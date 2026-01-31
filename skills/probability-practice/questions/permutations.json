@@ -1,5 +1,5 @@
 {
-  "permutations_questions": [
+  "questions": [
     {
       "question": "How many different batting orders are possible for a baseball team consisting of {{random_int(min_val=7, max_val=11)}} players?",
       "solution": ""
