@@ -8,6 +8,12 @@ allowed-tools: Read, Grep, Glob, Write, Bash, AskUserQuestion
 
 Generate a Jupyter notebook filled with hand-solvable probability challenges. Problems use **2×2 contingency tables** with small integer counts to practice marginal probability, conditional probability, Bayes' theorem, and independence testing.
 
+Note that all resoures for creating these notebooks are located in the user level skills folder for the agent:
+- If you are codex, look in ~/.codex/skills/probability-practice
+- If you are claude, look in ~/.claude/skills/probability-practice
+- If you are copilot, look in ~/.copilot/skills/probability-practice
+- If you are gemini, look in ~/.gemini/skills/probability-practice
+
 ## Workflow
 
 1. **Gather parameters** using AskUserQuestion. Ask the user:
