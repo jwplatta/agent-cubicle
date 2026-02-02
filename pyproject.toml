@@ -1,0 +1,10 @@
+[project]
+name = "agent-cubicle"
+version = "0.1.0"
+description = "Personal Docker-based sandbox environment for AI coding agents"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "ollama",
+  "openrouter",
+]
