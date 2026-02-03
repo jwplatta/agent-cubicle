@@ -1,6 +1,6 @@
 ## Workflow
 
-1. **Setup**: Create a new worktre and feature branch from main. (see [Git Branch Management](#git-branch-management))
+1. **Setup**: Create a new worktre and feature branch from main unless the user says to work on the main branch without committing (see [Git Branch Management](#git-branch-management))
 
 ```sh
 # Create a new worktree with a new branch
