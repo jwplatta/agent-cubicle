@@ -29,3 +29,5 @@ config/*
 tmp/
 
 plugins/template
+
+containers/config
