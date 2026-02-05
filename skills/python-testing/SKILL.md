@@ -1,3 +1,8 @@
+---
+name: python-testing
+description: Run and write pytest tests with coverage and fixtures
+---
+
 # Python Testing Skill
 
 Comprehensive testing with pytest including unit tests, integration tests, fixtures, and coverage reporting.

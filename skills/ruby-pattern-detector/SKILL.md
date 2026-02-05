@@ -1,3 +1,8 @@
+---
+name: ruby-pattern-detector
+description: Detect and suggest common Ruby patterns and refactors
+---
+
 # Ruby Pattern Detector Skill
 
 Automatically detect and suggest common Ruby patterns when working with Ruby code.

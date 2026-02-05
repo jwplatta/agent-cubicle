@@ -1,3 +1,8 @@
+---
+name: ruby-bundler
+description: Manage Ruby dependencies with Bundler commands and workflows
+---
+
 # Ruby Bundler Skill
 
 Intelligent Bundler operations for managing Ruby dependencies.

@@ -1,3 +1,8 @@
+---
+name: python-project-setup
+description: Initialize Python projects with modern tooling and structure
+---
+
 # Python Project Setup Skill
 
 Set up new Python projects following modern best practices with uv, ruff, pytest, and proper project structure.

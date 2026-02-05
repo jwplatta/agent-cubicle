@@ -1,3 +1,8 @@
+---
+name: python-code-quality
+description: Improve Python code quality with linting, formatting, and type checks
+---
+
 # Python Code Quality Skill
 
 Ensure Python code follows best practices with automated linting, formatting, and type checking using ruff and mypy.

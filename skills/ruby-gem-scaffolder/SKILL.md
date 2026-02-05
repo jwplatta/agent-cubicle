@@ -1,3 +1,8 @@
+---
+name: ruby-gem-scaffolder
+description: Scaffold new Ruby gems and standard project structure
+---
+
 # Ruby Gem Scaffolder Skill
 
 Intelligent gem creation and scaffolding following Ruby best practices.
