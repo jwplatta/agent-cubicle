@@ -3,31 +3,9 @@
 
 .gemini/tool-log.txt
 
-config/*
 
-!config/shared
 
-# Exclude all Claude config except these files
-!config/claude/agents
-!config/claude/commands
-!config/claude/hooks
-!config/claude/ide
-!config/claude/plans
-!config/claude/skills
-!config/claude/settings.json
-!config/claude/config.json
-!config/claude/CLAUDE.md
-
-# Exclude all Codex config except these files
-!config/codex/AGENTS.md
-!config/codex/skills
-!config/codex/config.toml
-
-# Exclude GitHub Copilot config except this file
-!config/copilot/mcp-config.json.template
 
 tmp/
 
 plugins/template
-
-containers/config
