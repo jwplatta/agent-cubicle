@@ -1,0 +1,30 @@
+{
+  "security": {
+    "auth": {
+      "selectedType": "oauth-personal"
+    }
+  },
+  "general": {
+    "vimMode": false
+  },
+  "tools": {
+    "enableHooks": true
+  },
+  "hooks": {
+    "enabled": true,
+    "AfterTool": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "tool-logger",
+            "type": "command",
+            "command": "~/.gemini/hooks/log-tools.sh",
+            "description": "Log all tool executions"
+          }
+        ]
+      }
+    ],
+    "disabled": []
+  }
+}
