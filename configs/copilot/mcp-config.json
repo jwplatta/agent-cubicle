@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "obsidian-mcp": {
+      "tools": [
+        "*"
+      ],
+      "type": "local",
+      "command": "/Users/jplatta/.asdf/shims/node",
+      "args": [
+        "/Users/jplatta/repos/second_brain/obsidian-mcp/build/index.js"
+      ]
+    },
+    "todoist": {
+      "type": "http",
+      "url": "https://ai.todoist.net/mcp",
+      "headers": {
+        "Authorization": "Bearer 472d3ae8fac139cf6b5a97581fa5aaf3121e2d39"
+      },
+      "tools": [
+        "*"
+      ]
+    }
+  }
+}
