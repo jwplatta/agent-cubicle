@@ -1,3 +1,8 @@
+---
+name: ruby-test-analyzer
+description: Analyze RSpec test failures and suggest fixes
+---
+
 # Ruby Test Analyzer Skill
 
 Intelligently analyze RSpec test failures and provide actionable debugging guidance.
