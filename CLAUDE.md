@@ -326,6 +326,14 @@ This environment prioritizes:
 4. Dependencies persist in mounted volume even if container is recreated
 5. Switch to another Python project in the same container: `cd ../another-python-project && uv venv`
 
+## Commit Messages
+
+- Use lowercase, imperative mood for the subject line (e.g., `add feature`, `fix bug`, `remove config`)
+- Keep the subject line concise (under 72 characters)
+- No period at the end of the subject line
+- Use the body to explain *what* and *why*, not *how*, when the change warrants it
+- Attribution trailer: `Co-Authored-By: jwplatta <jwplatta@users.noreply.github.com>`
+
 ## Future Workflow Goals
 
 The owner plans to build:
