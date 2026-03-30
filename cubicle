@@ -37,9 +37,14 @@ load_env() {
 ensure_symlink() {
   local source="$1"
   local target="$2"
+  local relative_source=""
 
   if [[ ! -e "$source" ]]; then
     die "Source path does not exist: $source"
+  fi
+
+  if [[ "$source" == "$ROOT_DIR/"* ]]; then
+    relative_source="${source#"$ROOT_DIR"/}"
   fi
 
   if [[ -e "$target" || -L "$target" ]]; then
@@ -47,6 +52,18 @@ ensure_symlink() {
       local existing
       existing="$(readlink "$target")"
       if [[ "$existing" == "$source" ]]; then
+        return 0
+      fi
+      if [[ -n "$relative_source" && "$existing" == */"$relative_source" ]]; then
+        rm "$target"
+        mkdir -p "$(dirname "$target")"
+        ln -s "$source" "$target"
+        return 0
+      fi
+      if [[ ! -e "$existing" ]]; then
+        rm "$target"
+        mkdir -p "$(dirname "$target")"
+        ln -s "$source" "$target"
         return 0
       fi
       die "Target already exists as a different symlink: $target -> $existing"
