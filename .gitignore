@@ -1,11 +1,7 @@
 # Environment variables with API keys
 .env
-
 .gemini/tool-log.txt
-
-
-
-
 tmp/
-
 plugins/template
+.codex/skills
+.claude/skills
