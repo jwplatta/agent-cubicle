@@ -6,13 +6,13 @@ cd "$ROOT_DIR"
 
 print_help() {
   cat <<'EOF'
-agent-cubicle: run a local coding agent with repo-managed config
+cubicle: run a local coding agent with repo-managed config
 
 Usage:
-  agent-cubicle run --agent <codex|claude|copilot|gemini> --project <name>
-  agent-cubicle clean --agent <codex|claude|copilot|gemini>
-  agent-cubicle help
-  agent-cubicle -h|--help
+  cubicle run --agent <codex|claude|copilot|gemini> --project <name>
+  cubicle clean --agent <codex|claude|copilot|gemini>
+  cubicle help
+  cubicle -h|--help
 EOF
 }
 
