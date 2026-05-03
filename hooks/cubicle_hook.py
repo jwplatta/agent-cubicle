@@ -19,8 +19,8 @@ def get_llm_family(payload):
         if "PreToolUse" in payload.get("hook_event_name", ""):
              return "claude" # Heuristic
     
-    # Default to codex if unknown but being called
-    return "codex"
+    # Default if unknown
+    return "unknown"
 
 EVENT_MAPPING = {
     "SessionStart": "session_start",
