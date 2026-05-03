@@ -10,6 +10,7 @@ cubicle: run a local coding agent with repo-managed config
 
 Usage:
   cubicle run --agent <codex|claude|copilot|gemini> --project <name>
+  cubicle init-hooks --agent <codex|claude|copilot|gemini>
   cubicle clean --agent <codex|claude|copilot|gemini>
   cubicle help
   cubicle -h|--help
@@ -130,6 +131,17 @@ link_shared() {
   fi
 }
 
+link_hooks() {
+  local agent="$1"
+  local home_dir="$2"
+  local target_dir="$home_dir/hooks"
+
+  mkdir -p "$target_dir"
+  ensure_symlink "$ROOT_DIR/hooks/cubicle_hook.py" "$target_dir/cubicle_hook.py"
+  ensure_symlink "$ROOT_DIR/hooks/db.py" "$target_dir/db.py"
+  chmod +x "$ROOT_DIR/hooks/cubicle_hook.py"
+}
+
 link_configs() {
   local agent="$1"
   local home_dir="$2"
@@ -180,6 +192,15 @@ clean_shared() {
   fi
 }
 
+clean_hooks() {
+  local agent="$1"
+  local home_dir="$2"
+  local target_dir="$home_dir/hooks"
+
+  remove_symlink_if_matches "$ROOT_DIR/hooks/cubicle_hook.py" "$target_dir/cubicle_hook.py"
+  remove_symlink_if_matches "$ROOT_DIR/hooks/db.py" "$target_dir/db.py"
+}
+
 clean_configs() {
   local agent="$1"
   local home_dir="$2"
@@ -205,6 +226,22 @@ clean_configs() {
   esac
 }
 
+init_hooks() {
+  local agent="$1"
+  local home_dir=""
+
+  case "$agent" in
+    claude) home_dir="$HOME/.claude" ;;
+    codex) home_dir="$HOME/.codex" ;;
+    gemini) home_dir="$HOME/.gemini" ;;
+    copilot) home_dir="$HOME/.copilot" ;;
+    *) die "Unknown agent: $agent" ;;
+  esac
+
+  link_hooks "$agent" "$home_dir"
+  echo "Hooks initialized for $agent in $home_dir/hooks"
+}
+
 run_agent() {
   local agent="$1"
   local project="$2"
@@ -221,6 +258,7 @@ run_agent() {
 
   link_shared "$agent" "$home_dir"
   link_configs "$agent" "$home_dir"
+  link_hooks "$agent" "$home_dir"
 
   local project_dir="$PROJECTS_DIR/$project"
   if [[ ! -d "$project_dir" ]]; then
@@ -245,6 +283,7 @@ clean_agent() {
 
   clean_shared "$agent" "$home_dir"
   clean_configs "$agent" "$home_dir"
+  clean_hooks "$agent" "$home_dir"
 }
 
 command="${1:-help}"
@@ -279,6 +318,27 @@ case "$command" in
 
     load_env
     run_agent "$agent" "$project"
+    ;;
+  init-hooks)
+    agent=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --agent)
+          agent="${2:-}"
+          shift 2
+          ;;
+        -h|--help)
+          print_help
+          exit 0
+          ;;
+        *)
+          die "Unknown argument: $1"
+          ;;
+      esac
+    done
+
+    [[ -n "$agent" ]] || die "Missing --agent"
+    init_hooks "$agent"
     ;;
   clean)
     agent=""

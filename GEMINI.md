@@ -2,11 +2,13 @@
 
 ## Project Overview
 
-This project, "Cubicle," is a sandboxed Docker environment for running and managing various AI coding agents. It provides a consistent and isolated space to experiment with different agents, including Claude, Codex, and GitHub Copilot, without affecting the host system.
+"Cubicle" is a single harness designed to provide shared logic, configuration, and tools for LLM coding agents. It offers a consistent, sandboxed environment for running various agents (e.g., Claude, Codex, Gemini) with a unified set of skills, prompts, and workflows.
 
-The core of the project is a set of Docker services defined in `docker-compose.yml`. Each service runs a specific AI agent in its own container, with dedicated resources and a shared workspace. This allows for easy iteration on configurations, prompts, and skills across multiple models.
-
-The environment is designed for full autonomy, with each agent having access to the user's repositories and notes (mounted as volumes). This enables them to perform tasks like reading and writing code, interacting with version control, and potentially even opening pull requests.
+The goal is to minimize duplication and maximize the effectiveness of AI agents by centralizing:
+- **Shared Skills:** Reusable tools and functions accessible across different models.
+- **Unified Configuration:** Consistent system prompts, environment variables, and operational boundaries.
+- **Isolated Execution:** A Docker-based infrastructure that ensures agents operate safely and predictably without affecting the host system.
+- **Interoperability:** A common framework for agents to interact with version control, file systems, and external APIs.
 
 ## Building and Running
 
@@ -54,11 +56,13 @@ The environment is designed for full autonomy, with each agent having access to 
 
 ## Development Conventions
 
-### Agent Configuration
+### Agent Configuration & Shared Logic
 
-- Agent-specific configurations are located in the `config` directory (e.g., `config/claude`, `config/codex`).
-- Shared configuration and base agent instructions are in `config/shared`.
-- The `CLAUDE.md` file in the root of the project is used as a place to document workflows and ideas for the agents.
+- **Agent-Specific Config:** Located in the `configs/` directory (e.g., `configs/claude`, `configs/gemini`).
+- **Shared Skills:** Reusable agent capabilities are defined in the `skills/` directory.
+- **Shared Instructions:** Common personas and system prompts are in the `instructions/` or `agents/` directories.
+- **Prompts:** Common prompt templates are stored in `prompts/`.
+- **Workflow Documentation:** `CLAUDE.md` and `GEMINI.md` serve as living documentation for agent-specific workflows and repo-wide guidance.
 
 ### Docker Environment
 
