@@ -47,9 +47,12 @@ Useful commands:
 - Existing files in managed target locations are backed up under `~/.cubicle/backups/` before Cubicle replaces them with symlinks.
 - Project dependencies remain project-local, such as `.venv`, `.bundle`, or `node_modules`.
 
-## Next Steps (for me)
+## Ideas & Next Steps (for me)
 
 - Build a workflow where agents pull tasks from Todoist, complete them, and open a pull request.
 - Expand the local CLI as the main entrypoint for project-specific agent workflows.
 - Test whether agents can collaborate on an options trading dashboard in Streamlit, using my matplotlib prototypes.
 - Delegate work to cloud agents when that becomes useful.
+- Delegating to cloud agents
+- Use tmux for persistant sessions
+- Use tmux for persistant sessions
