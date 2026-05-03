@@ -47,7 +47,7 @@ def get_agent_home(agent):
         die(f"Unknown agent: {agent}")
     return homes[agent]
 
-def update_json_settings(settings_path, hook_script, events):
+def update_json_settings(agent, settings_path, hook_script, events):
     if not settings_path.exists():
         settings = {}
     else:
@@ -57,20 +57,34 @@ def update_json_settings(settings_path, hook_script, events):
             except json.JSONDecodeError:
                 settings = {}
 
+    # Agent-specific global enablement
+    if agent == "gemini":
+        if "hooksConfig" not in settings:
+            settings["hooksConfig"] = {}
+        settings["hooksConfig"]["enabled"] = True
+    elif agent == "claude":
+        settings["disableAllHooks"] = False
+
     if "hooks" not in settings:
         settings["hooks"] = {}
     
-    hooks_config = settings["hooks"]
-    if isinstance(hooks_config, dict) and "enabled" not in hooks_config:
-        hooks_config["enabled"] = True
+    hooks_obj = settings["hooks"]
+    
+    # Ensure hooks_obj is a dict and remove legacy/invalid 'enabled' key
+    if not isinstance(hooks_obj, dict):
+        settings["hooks"] = {}
+        hooks_obj = settings["hooks"]
+    
+    if "enabled" in hooks_obj:
+        del hooks_obj["enabled"]
 
     for event in events:
-        if event not in hooks_config:
-            hooks_config[event] = []
+        if event not in hooks_obj:
+            hooks_obj[event] = []
         
         # Check if already registered
         matcher_found = False
-        for entry in hooks_config[event]:
+        for entry in hooks_obj[event]:
             if entry.get("matcher") == "*":
                 matcher_found = True
                 if "hooks" not in entry:
@@ -88,7 +102,7 @@ def update_json_settings(settings_path, hook_script, events):
                 break
         
         if not matcher_found:
-            hooks_config[event].append({
+            hooks_obj[event].append({
                 "matcher": "*",
                 "hooks": [{
                     "name": "cubicle-telemetry",
@@ -251,9 +265,10 @@ def init_hooks(agent=None, force=False):
         
         if agent == "gemini":
             events = ["SessionStart", "BeforeTool", "AfterTool", "BeforeAgent"]
-            update_json_settings(home_dir / "settings.json", central_hook, events)
+            update_json_settings(agent, home_dir / "settings.json", central_hook, events)
         elif agent == "claude":
-            update_json_settings(home_dir / "settings.json", central_hook, events)
+            update_json_settings(agent, home_dir / "settings.json", central_hook, events)
+
         elif agent == "codex":
             update_codex_toml(home_dir / "config.toml", central_hook, events)
         
