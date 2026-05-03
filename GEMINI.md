@@ -2,12 +2,12 @@
 
 ## Project Overview
 
-Cubicle is a local harness for coding agents. It keeps shared configuration, skills, commands, hooks, prompts, and notes in one repo, then uses the `./cubicle` CLI to link the right files into each agent's home directory before launching that agent inside a chosen local project.
+Cubicle is a local harness for coding agents. It keeps shared configuration, skills, commands, prompts, and notes in one repo, then uses the `./cubicle` CLI to link the right files into each agent's home directory before launching that agent inside a chosen local project.
 
 The goal is to minimize duplication and keep agent setup easy to inspect and change:
 - **Shared skills:** reusable capabilities in `skills/`
 - **Unified configuration:** agent-specific files in `configs/`
-- **Shared commands and hooks:** common operational behavior across agents
+- **Shared commands:** common operational behavior across agents
 - **Interoperability:** one repo-driven workflow for Claude, Codex, Copilot, and Gemini
 
 ## Running Cubicle
@@ -22,7 +22,6 @@ The goal is to minimize duplication and keep agent setup easy to inspect and cha
 ```bash
 ./cubicle help
 ./cubicle run --agent gemini --project cubicle
-./cubicle init-hooks --agent gemini
 ./cubicle clean --agent gemini
 ```
 
@@ -35,7 +34,6 @@ The goal is to minimize duplication and keep agent setup easy to inspect and cha
 - Agent-specific config lives in `configs/`.
 - Shared skills live in `skills/`.
 - Shared commands live in `commands/`.
-- Shared hook scripts live in `hooks/`.
 - Common personas and guidance live in `agents/`, `instructions/`, and related docs.
 
 ### Project Boundaries

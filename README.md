@@ -1,6 +1,6 @@
 # Cubicle
 
-Cubicle is my local harness for running coding agents with repo-managed configs, skills, commands, hooks, and prompts.
+Cubicle is my local harness for running coding agents with repo-managed configs, skills, commands, and prompts.
 
 ## Why I Built This
 
@@ -21,7 +21,6 @@ Shared assets:
 - agent configs in `configs/`
 - reusable skills in `skills/`
 - shared commands in `commands/`
-- hook scripts in `hooks/`
 - prompts, notes, and agent guidance in the rest of the repo
 
 ## Quick Start
@@ -39,7 +38,6 @@ Useful commands:
 
 ```bash
 ./cubicle run --agent codex --project my-project
-./cubicle init-hooks --agent claude
 ./cubicle clean --agent gemini
 ```
 

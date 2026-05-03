@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (`claude.ai/code`) when working with 
 
 ## Project Overview
 
-Cubicle is a local harness for coding agents. It keeps shared configuration, skills, commands, hooks, prompts, and notes in one repo, then uses the `./cubicle` CLI to symlink the right files into each agent's home directory before launching that agent inside a local project.
+Cubicle is a local harness for coding agents. It keeps shared configuration, skills, commands, prompts, and notes in one repo, then uses the `./cubicle` CLI to symlink the right files into each agent's home directory before launching that agent inside a local project.
 
 ## Primary Workflow
 
@@ -13,13 +13,11 @@ Create `.env` from `.env.example`, set `PROJECTS_DIR`, then use the local CLI:
 ```bash
 ./cubicle help
 ./cubicle run --agent claude --project cubicle
-./cubicle init-hooks --agent claude
 ./cubicle clean --agent claude
 ```
 
 Behavior:
 - `run` loads `.env`, validates `PROJECTS_DIR`, installs managed symlinks, then launches the selected agent from `${PROJECTS_DIR}/<project>`.
-- `init-hooks` installs the shared hook scripts into the agent's home directory.
 - `clean` removes symlinks that point back into this repo.
 - Existing files at managed targets are moved under `~/.cubicle/backups/<run-id>/` before symlinks are created.
 
@@ -30,7 +28,6 @@ cubicle/
 ├── configs/      # Agent-specific config files
 ├── skills/       # Shared skills linked into agent home directories
 ├── commands/     # Shared command markdown linked into agent home directories
-├── hooks/        # Shared local hook scripts
 ├── agents/       # Agent personas and repo guidance
 ├── prompts/      # Reusable prompt templates
 ├── doc/          # Internal notes and design docs
@@ -49,7 +46,6 @@ Cubicle manages these agent-specific targets:
 Shared directories:
 - Each entry in `skills/` is symlinked into the matching agent home `skills/` directory.
 - Each file in `commands/` is symlinked into the matching agent home `commands/` directory.
-- Hooks are linked from `hooks/` into the agent home `hooks/` directory.
 
 ## Working With Projects
 
