@@ -241,12 +241,6 @@ def init_hooks(agent):
     elif agent == "codex":
         update_codex_toml(home_dir / "config.toml", central_hook, events)
     
-    # 3. Clean up legacy per-agent hooks if they exist
-    legacy_hook = home_dir / "hooks" / "cubicle_hook.py"
-    legacy_db = home_dir / "hooks" / "db.py"
-    if legacy_hook.exists(): legacy_hook.unlink()
-    if legacy_db.exists(): legacy_db.unlink()
-    
     print(f"Hooks centralized at {central_hook} and registered for {agent}")
 
 def del_hooks(agent):
@@ -260,14 +254,6 @@ def del_hooks(agent):
         remove_json_settings(home_dir / "settings.json", central_hook)
     elif agent == "codex":
         remove_codex_toml(home_dir / "config.toml", central_hook)
-
-    # 2. Clean up any legacy per-agent files that might still be there
-    legacy_dir = home_dir / "hooks"
-    for name in ["cubicle_hook.py", "db.py"]:
-        path = legacy_dir / name
-        if path.exists():
-            path.unlink()
-            print(f"Removed legacy file {path}")
 
 def main():
     parser = argparse.ArgumentParser(description="Cubicle: AI Agent Hook Manager")
