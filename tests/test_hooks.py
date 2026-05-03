@@ -7,7 +7,7 @@ DB_PATH = Path.home() / ".cubicle" / "data" / "telemetry.db"
 
 def run_hook(payload, env=None):
     process = subprocess.Popen(
-        ["python3", "hooks/cubicle_hook.py"],
+        ["python3", "src/cubicle/agent_hook.py"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

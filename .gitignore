@@ -1,8 +1,67 @@
-# Environment variables with API keys
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Environments
 .env
-.gemini/tool-log.txt
-tmp/
-plugins/template
-.codex/skills
-.claude/skills
-.gemini/skills
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.hypothesis/
+.pytest_cache/
+cover/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Project specific
+*.db
+*.sqlite
+*.sqlite3
+/data/
+/logs/
+/tmp/
+/temp/
+
+# uv
+uv.lock
