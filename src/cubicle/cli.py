@@ -96,7 +96,7 @@ def update_json_settings(agent, settings_path, hook_script, events):
                 entry["hooks"].append({
                     "name": "cubicle-telemetry",
                     "type": "command",
-                    "command": str(hook_script),
+                    "command": f"python3 {hook_script}",
                     "description": "Cubicle unified agent telemetry"
                 })
                 break
@@ -107,7 +107,7 @@ def update_json_settings(agent, settings_path, hook_script, events):
                 "hooks": [{
                     "name": "cubicle-telemetry",
                     "type": "command",
-                    "command": str(hook_script),
+                    "command": f"python3 {hook_script}",
                     "description": "Cubicle unified agent telemetry"
                 }]
             })
@@ -129,10 +129,29 @@ def update_codex_toml(config_path, hook_script, events):
         else:
             content = "[features]\ncodex_hooks = true\n\n" + content
 
+    # Clean up existing cubicle-telemetry blocks first to avoid duplication/stale paths
+    lines = content.splitlines()
+    new_lines = []
+    skip_mode = False
+    for line in lines:
+        if line.startswith("[[hooks.") and "cubicle-telemetry" in "".join(lines[lines.index(line):lines.index(line)+10]):
+            skip_mode = True
+            continue
+        if skip_mode:
+            if line.startswith("[[hooks.") or line.startswith("[projects.") or line.startswith("[features]"):
+                skip_mode = False
+            else:
+                continue
+        if "cubicle-telemetry" in line:
+            continue
+        new_lines.append(line)
+    
+    content = "\n".join(new_lines)
+
+    # Append fresh blocks
     for event in events:
-        hook_block = f'\n[[hooks.{event}]]\nmatcher = "*"\n\n[[hooks.{event}.hooks]]\nname = "cubicle-telemetry"\ntype = "command"\ncommand = "{hook_script}"\ndescription = "Cubicle unified agent telemetry"\n'
-        if str(hook_script) not in content or f"hooks.{event}" not in content:
-            content += hook_block
+        hook_block = f'\n[[hooks.{event}]]\nmatcher = "*"\n\n[[hooks.{event}.hooks]]\nname = "cubicle-telemetry"\ntype = "command"\ncommand = "python3 {hook_script}"\ndescription = "Cubicle unified agent telemetry"\n'
+        content += hook_block
 
     with open(config_path, "w") as f:
         f.write(content)
