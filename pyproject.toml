@@ -1,7 +1,7 @@
 [project]
 name = "cubicle"
 version = "0.1.0"
-description = "Personal Docker-based sandbox environment for AI coding agents"
+description = "Local harness for repo-managed AI coding agent configuration"
 readme = "README.md"
 requires-python = ">=3.9.2"
 dependencies = [
