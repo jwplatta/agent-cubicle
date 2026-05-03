@@ -283,8 +283,9 @@ def init_hooks(agent=None, force=False):
         events = ["SessionStart", "SessionEnd", "PreToolUse", "PostToolUse", "Stop"]
         
         if agent == "gemini":
-            events = ["SessionStart", "BeforeTool", "AfterTool", "BeforeAgent"]
+            events = ["SessionStart", "SessionEnd", "BeforeTool", "AfterTool", "BeforeAgent"]
             update_json_settings(agent, home_dir / "settings.json", central_hook, events)
+
         elif agent == "claude":
             update_json_settings(agent, home_dir / "settings.json", central_hook, events)
 
