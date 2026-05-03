@@ -5,10 +5,11 @@
 Cubicle is a local harness for coding agents. It keeps shared configuration, skills, commands, prompts, and notes in one repo, then uses the `./cubicle` CLI to link the right files into each agent's home directory before launching that agent inside a chosen local project.
 
 The goal is to minimize duplication and keep agent setup easy to inspect and change:
-- **Shared skills:** reusable capabilities in `skills/`
 - **Unified configuration:** agent-specific files in `configs/`
-- **Shared commands:** common operational behavior across agents
+- **Shared commands:** common operational behavior across agents in `commands/`
 - **Interoperability:** one repo-driven workflow for Claude, Codex, Copilot, and Gemini
+
+Skills are managed separately via the `skillex` utility.
 
 ## Running Cubicle
 
@@ -32,8 +33,8 @@ The goal is to minimize duplication and keep agent setup easy to inspect and cha
 ### Agent Configuration and Shared Logic
 
 - Agent-specific config lives in `configs/`.
-- Shared skills live in `skills/`.
 - Shared commands live in `commands/`.
+- Skills are managed by the `skillex` utility and are stored in the `skills/` directory for versioning.
 - Common personas and guidance live in `agents/`, `instructions/`, and related docs.
 
 ### Project Boundaries
