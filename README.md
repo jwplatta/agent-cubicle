@@ -1,55 +1,68 @@
 # Cubicle
 
-Cubicle is my local harness for running coding agents with repo-managed configs, skills, commands, and prompts.
+Cubicle is a local harness and management tool for AI coding agents. It provides a central place to manage shared logic, configuration, and tools for different agent families (like Claude, Gemini, and Codex), ensuring a consistent and observable developer experience.
 
-## Why I Built This
+The goal of Cubicle is to eliminate duplication across different agent setups and provide a single interface for extending agent capabilities.
 
-- Keep agent configuration and shared context under version control.
-- Reuse the same skills, commands, and prompts across multiple agents.
-- Launch agents in local project directories without copying config by hand.
-- Make it easy to change how the setup works as my workflow evolves.
+## Current Features
 
-## What It Manages
+### 1. Unified Telemetry Harness
+A standardized way to capture and normalize usage data across different LLM families, storing everything in a central local SQLite database.
 
-Agents:
-- Claude Code
-- Codex
-- GitHub Copilot CLI
-- Gemini
+- **Event Normalization:** Maps agent-specific lifecycle events (e.g., `BeforeTool`, `PreToolUse`) to a consistent standard.
+- **Centralized Storage:** A SQLite database at `~/.cubicle/data/telemetry.db` for easy querying of agent activity.
+- **Passive Observation:** Non-blocking hook implementation that doesn't interfere with agent performance.
 
-Shared assets:
-- agent configs in `configs/`
-- reusable skills in `skills/`
-- shared commands in `commands/`
-- prompts, notes, and agent guidance in the rest of the repo
+## Setup Guide
 
-## Quick Start
+### 1. Prerequisite
+Ensure you have Python 3.9+ installed on your system.
+
+### 2. Local Installation
+Install the Cubicle CLI globally (in editable mode for development):
 
 ```bash
-cp .env.example .env
-# add your API keys and PROJECTS_DIR
-./cubicle help
-./cubicle run --agent claude --project cubicle
+git clone https://github.com/jwplatta/agent-cubicle.git
+cd agent-cubicle
+pip install -e .
 ```
 
-The `cubicle` CLI installs the expected symlinks into each agent's dotfolder and then launches the chosen agent directly from the target project directory.
-
-Useful commands:
+### 3. Initialize Agent Hooks
+Point your AI agents to the Cubicle telemetry harness:
 
 ```bash
-./cubicle run --agent codex --project my-project
-./cubicle clean --agent gemini
+# Setup for Gemini
+cubicle init-hooks --agent gemini
+
+# Setup for Claude
+cubicle init-hooks --agent claude
+
+# Setup for Codex
+cubicle init-hooks --agent codex
 ```
+
+This command installs stable hook scripts to `~/.cubicle/hooks/` and automatically registers them in your agent's global settings (e.g., `~/.claude/settings.json`).
+
+### Commands
+
+- `cubicle init-hooks [--agent <name>] [--force]`: Initializes centralized resources and/or registers hooks for an agent. Use `--force` to refresh code and reset the database.
+- `cubicle del-hooks --agent <name>`: Unregisters hooks from the specified agent.
+- `cubicle help`: Shows this help message.
+
+## Telemetry Usage
+
+Once initialized, Cubicle captures tool use, prompt submission, and session events in the background.
+
+### Querying Data
+Query the SQLite database at `~/.cubicle/data/telemetry.db`:
+
+```bash
+sqlite3 ~/.cubicle/data/telemetry.db "SELECT timestamp, llm_family, event_type FROM telemetry ORDER BY id DESC LIMIT 10;"
+```
+
+## Related Tools
+- **[skillex](https://github.com/jwplatta/skillex):** Manages versioned agent skills. Cubicle and Skillex work together to provide a robust shared environment for coding agents.
 
 ## Notes
-
-- `PROJECTS_DIR` must be set in `.env`.
-- Existing files in managed target locations are backed up under `~/.cubicle/backups/` before Cubicle replaces them with symlinks.
-- Project dependencies remain project-local, such as `.venv`, `.bundle`, or `node_modules`.
-
-## Next Steps (for me)
-
-- Build a workflow where agents pull tasks from Todoist, complete them, and open a pull request.
-- Expand the local CLI as the main entrypoint for project-specific agent workflows.
-- Test whether agents can collaborate on an options trading dashboard in Streamlit, using my matplotlib prototypes.
-- Delegate work to cloud agents when that becomes useful.
+- The hooks are designed to be "fail-safe" and will not block the agent if an error occurs.
+- The raw JSON payload from every event is preserved in the `raw_payload` column for future analysis.

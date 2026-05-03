@@ -2,42 +2,44 @@
 
 ## Project Overview
 
-Cubicle is a local harness for coding agents. It keeps shared configuration, skills, commands, prompts, and notes in one repo, then uses the `./cubicle` CLI to link the right files into each agent's home directory before launching that agent inside a chosen local project.
+"Cubicle" is a local harness and management tool for AI coding agents. It provides a central place to manage shared logic, configuration, and tools for different agent families (like Claude, Gemini, and Codex), ensuring a consistent and observable developer experience.
 
-The goal is to minimize duplication and keep agent setup easy to inspect and change:
-- **Shared skills:** reusable capabilities in `skills/`
-- **Unified configuration:** agent-specific files in `configs/`
-- **Shared commands:** common operational behavior across agents
-- **Interoperability:** one repo-driven workflow for Claude, Codex, Copilot, and Gemini
+The goal is to minimize duplication and maximize the effectiveness of AI agents by centralizing:
+- **Shared Skills:** Reusable agent capabilities managed via `skillex`.
+- **Shared Configuration:** Centralized management of agent settings and operational boundaries.
+- **Unified Telemetry:** A standardized hook system to capture agent behavior across different models.
+- **Interoperability:** A common framework for agents to interact with local projects and shared resources.
 
-## Running Cubicle
+## Key Current Feature: Unified Hooks
 
-### Prerequisites
+Cubicle currently provides a standardized way to capture telemetry data from agents like Claude, Gemini, and Codex, normalizing their native events into a consistent format and storing them in a local SQLite database at `~/.cubicle/data/telemetry.db`.
 
-- A local install of the agent CLI you want to run
-- An `.env` file with the needed keys and `PROJECTS_DIR`
-
-### Key Commands
+## Installation
 
 ```bash
-./cubicle help
-./cubicle run --agent gemini --project cubicle
-./cubicle clean --agent gemini
+# Install the cubicle CLI globally (in editable mode for development)
+pip install -e .
+
+# Initialize telemetry hooks for a specific agent
+cubicle init-hooks --agent gemini
 ```
 
-`run` installs or refreshes symlinks, validates the project path under `PROJECTS_DIR`, changes into that project directory, and launches the selected agent directly on the host.
+## CLI Usage
 
-## Development Conventions
+- `cubicle init-hooks --agent <name>`: Installs telemetry hooks and registers them in agent settings.
+- `cubicle del-hooks --agent <name>`: Removes cubicle hooks and unregisters them.
 
-### Agent Configuration and Shared Logic
+## Telemetry Database Schema
 
-- Agent-specific config lives in `configs/`.
-- Shared skills live in `skills/`.
-- Shared commands live in `commands/`.
-- Common personas and guidance live in `agents/`, `instructions/`, and related docs.
+Stored in `~/.cubicle/data/telemetry.db`:
+- **`timestamp`**: UTC time of the event.
+- **`llm_family`**: gemini, claude, codex, etc.
+- **`event_type`**: Normalized event name (e.g., `pre_tool_use`, `session_start`).
+- **`raw_payload`**: The complete JSON object provided by the agent.
 
-### Project Boundaries
+## Future Vision
 
-- Cubicle manages agent setup, not project dependency installation.
-- Project dependencies should remain project-local, such as `.venv`, `.bundle`, or `node_modules`.
-- When behavior changes, update the `cubicle` script and the top-level docs together so the local workflow stays coherent.
+Cubicle will expand to become the primary local entry point for complex agent workflows, including:
+- Automated pull request management.
+- Task orchestration via Todoist or local backlogs.
+- Shared memory and context across different agent sessions.

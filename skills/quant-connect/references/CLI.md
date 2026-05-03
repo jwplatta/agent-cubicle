@@ -1,2 +1,0 @@
-# Quant Connect CLI
-
