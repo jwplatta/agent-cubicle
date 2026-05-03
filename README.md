@@ -43,6 +43,13 @@ cubicle init-hooks --agent codex
 
 This command installs stable hook scripts to `~/.cubicle/hooks/` and automatically registers them in your agent's global settings (e.g., `~/.claude/settings.json`).
 
+### Commands
+
+- `cubicle setup`: Initializes the Cubicle home directory and stable resources. Use `--force` to refresh code from the repository.
+- `cubicle init-hooks --agent <name>`: Installs telemetry hooks and registers them in agent settings.
+- `cubicle del-hooks --agent <name>`: Unregisters hooks from the specified agent.
+- `cubicle help`: Shows this help message.
+
 ## Telemetry Usage
 
 Once initialized, Cubicle captures tool use, prompt submission, and session events in the background.
@@ -52,11 +59,6 @@ Query the SQLite database at `~/.cubicle/data/telemetry.db`:
 
 ```bash
 sqlite3 ~/.cubicle/data/telemetry.db "SELECT timestamp, llm_family, event_type FROM telemetry ORDER BY id DESC LIMIT 10;"
-```
-
-### Removing Hooks
-```bash
-cubicle del-hooks --agent gemini
 ```
 
 ## Related Tools
