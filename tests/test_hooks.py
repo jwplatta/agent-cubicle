@@ -6,8 +6,9 @@ from pathlib import Path
 DB_PATH = Path.home() / ".cubicle" / "data" / "telemetry.db"
 
 def run_hook(payload, env=None):
+    hook_path = Path.home() / ".cubicle" / "hooks" / "cubicle_hook.py"
     process = subprocess.Popen(
-        ["python3", "src/cubicle/agent_hook.py"],
+        ["python3", str(hook_path)],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
