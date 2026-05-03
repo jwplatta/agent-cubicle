@@ -211,41 +211,55 @@ def remove_codex_toml(config_path, hook_script):
             f.write(content)
         print(f"Unregistered hooks from {config_path}")
 
-def setup(force=False):
-    # 1. Ensure centralized hooks directory exists
+def _ensure_resources(force=False):
+    # 1. Ensure centralized directories exist
     HOOKS_INSTALL_DIR.mkdir(parents=True, exist_ok=True)
-    central_hook = HOOKS_INSTALL_DIR / "cubicle_hook.py"
-    central_db = HOOKS_INSTALL_DIR / "db.py"
+    data_dir = CUBICLE_HOME / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
     
-    # 2. Copy code files only if missing or forced (NEVER touches the .db file)
-    if force or not central_hook.exists():
+    central_hook = HOOKS_INSTALL_DIR / "cubicle_hook.py"
+    central_db_logic = HOOKS_INSTALL_DIR / "db.py"
+    actual_db_file = data_dir / "telemetry.db"
+    
+    # 2. Handle code/db refresh if forced
+    if force:
+        if actual_db_file.exists():
+            actual_db_file.unlink()
+            print(f"Deleted existing database at {actual_db_file}")
+        
         ensure_copy(PACKAGE_ROOT / "agent_hook.py", central_hook)
-        print(f"Installed stable hook code to {central_hook}")
-    
-    if force or not central_db.exists():
-        ensure_copy(PACKAGE_ROOT / "db.py", central_db)
-        print(f"Installed stable DB logic to {central_db}")
+        ensure_copy(PACKAGE_ROOT / "db.py", central_db_logic)
+        print(f"Forced refresh of hook code and DB logic in {HOOKS_INSTALL_DIR}")
+    else:
+        # Standard non-destructive installation (only if missing)
+        if not central_hook.exists():
+            ensure_copy(PACKAGE_ROOT / "agent_hook.py", central_hook)
+            print(f"Installed hook code to {central_hook}")
+        
+        if not central_db_logic.exists():
+            ensure_copy(PACKAGE_ROOT / "db.py", central_db_logic)
+            print(f"Installed DB logic to {central_db_logic}")
 
-    # 3. Ensure data directory exists for the database (which is managed by db.py)
-    (CUBICLE_HOME / "data").mkdir(parents=True, exist_ok=True)
-
-def init_hooks(agent):
-    # Ensure centralized hub is ready (non-destructive)
-    setup(force=False)
+def init_hooks(agent=None, force=False):
+    # Ensure centralized hub is ready
+    _ensure_resources(force=force)
     
-    central_hook = HOOKS_INSTALL_DIR / "cubicle_hook.py"
-    home_dir = get_agent_home(agent)
-    events = ["SessionStart", "SessionEnd", "PreToolUse", "PostToolUse", "Stop"]
-    
-    if agent == "gemini":
-        events = ["SessionStart", "BeforeTool", "AfterTool", "BeforeAgent"]
-        update_json_settings(home_dir / "settings.json", central_hook, events)
-    elif agent == "claude":
-        update_json_settings(home_dir / "settings.json", central_hook, events)
-    elif agent == "codex":
-        update_codex_toml(home_dir / "config.toml", central_hook, events)
-    
-    print(f"Hooks registered for {agent} pointing to {central_hook}")
+    if agent:
+        central_hook = HOOKS_INSTALL_DIR / "cubicle_hook.py"
+        home_dir = get_agent_home(agent)
+        events = ["SessionStart", "SessionEnd", "PreToolUse", "PostToolUse", "Stop"]
+        
+        if agent == "gemini":
+            events = ["SessionStart", "BeforeTool", "AfterTool", "BeforeAgent"]
+            update_json_settings(home_dir / "settings.json", central_hook, events)
+        elif agent == "claude":
+            update_json_settings(home_dir / "settings.json", central_hook, events)
+        elif agent == "codex":
+            update_codex_toml(home_dir / "config.toml", central_hook, events)
+        
+        print(f"Hooks registered for {agent} pointing to {central_hook}")
+    elif not force:
+        print("No agent specified. Use --agent <name> to register hooks, or --force to refresh resources.")
 
 def del_hooks(agent):
     home_dir = get_agent_home(agent)
@@ -263,13 +277,10 @@ def main():
     parser = argparse.ArgumentParser(description="Cubicle: AI Agent Hook Manager")
     subparsers = parser.add_subparsers(dest="command")
     
-    # Setup command
-    setup_parser = subparsers.add_parser("setup", help="Initialize the cubicle home directory and resources")
-    setup_parser.add_argument("--force", action="store_true", help="Force refresh of installed resources")
-
     # Init hooks command
-    init_parser = subparsers.add_parser("init-hooks", help="Register cubicle hooks for an agent")
-    init_parser.add_argument("--agent", required=True, help="Agent name (claude, gemini, etc.)")
+    init_parser = subparsers.add_parser("init-hooks", help="Initialize or register cubicle hooks")
+    init_parser.add_argument("--agent", help="Agent name (claude, gemini, etc.)")
+    init_parser.add_argument("--force", action="store_true", help="Force overwrite of hook code and reset the database")
     
     # Del hooks command
     del_parser = subparsers.add_parser("del-hooks", help="Unregister cubicle hooks from an agent")
@@ -280,10 +291,8 @@ def main():
 
     args = parser.parse_args()
     
-    if args.command == "setup":
-        setup(force=args.force)
-    elif args.command == "init-hooks":
-        init_hooks(args.agent)
+    if args.command == "init-hooks":
+        init_hooks(agent=args.agent, force=args.force)
     elif args.command == "del-hooks":
         del_hooks(args.agent)
     elif args.command == "help":

@@ -45,8 +45,7 @@ This command installs stable hook scripts to `~/.cubicle/hooks/` and automatical
 
 ### Commands
 
-- `cubicle setup`: Initializes the Cubicle home directory and stable resources. Use `--force` to refresh code from the repository.
-- `cubicle init-hooks --agent <name>`: Installs telemetry hooks and registers them in agent settings.
+- `cubicle init-hooks [--agent <name>] [--force]`: Initializes centralized resources and/or registers hooks for an agent. Use `--force` to refresh code and reset the database.
 - `cubicle del-hooks --agent <name>`: Unregisters hooks from the specified agent.
 - `cubicle help`: Shows this help message.
 
