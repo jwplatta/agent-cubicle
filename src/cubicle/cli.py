@@ -274,17 +274,55 @@ def del_hooks(agent):
         remove_codex_toml(home_dir / "config.toml", central_hook)
 
 def main():
-    parser = argparse.ArgumentParser(description="Cubicle: AI Agent Hook Manager")
-    subparsers = parser.add_subparsers(dest="command")
+    parser = argparse.ArgumentParser(
+        description="Cubicle: A management tool for shared AI agent resources and telemetry.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Initialize the central hook hub (if not already present)
+  cubicle init-hooks
+
+  # Register hooks for a specific agent
+  cubicle init-hooks --agent gemini
+
+  # Force a factory reset (overwrites code and WIPES the telemetry database)
+  cubicle init-hooks --force
+
+  # Remove hooks from an agent
+  cubicle del-hooks --agent claude
+        """
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
     
     # Init hooks command
-    init_parser = subparsers.add_parser("init-hooks", help="Initialize or register cubicle hooks")
-    init_parser.add_argument("--agent", help="Agent name (claude, gemini, etc.)")
-    init_parser.add_argument("--force", action="store_true", help="Force overwrite of hook code and reset the database")
+    init_parser = subparsers.add_parser(
+        "init-hooks", 
+        help="Initialize stable resources and register hooks",
+        description="Ensures the ~/.cubicle hub is ready and registers absolute hook paths in agent settings."
+    )
+    init_parser.add_argument(
+        "--agent", 
+        choices=["claude", "gemini", "codex", "copilot"],
+        help="The AI agent family to register (claude, gemini, codex, or copilot)"
+    )
+    init_parser.add_argument(
+        "--force", 
+        action="store_true", 
+        help="Overwrite stable hook scripts with fresh copies from the package and DELETE the existing database"
+    )
     
     # Del hooks command
-    del_parser = subparsers.add_parser("del-hooks", help="Unregister cubicle hooks from an agent")
-    del_parser.add_argument("--agent", required=True, help="Agent name")
+    del_parser = subparsers.add_parser(
+        "del-hooks", 
+        help="Unregister hooks from an agent",
+        description="Removes the Cubicle telemetry hook entries from the specified agent's user settings."
+    )
+    del_parser.add_argument(
+        "--agent", 
+        required=True, 
+        choices=["claude", "gemini", "codex", "copilot"],
+        help="The AI agent family to unregister"
+    )
     
     # Help command
     subparsers.add_parser("help", help="Show this help message")
