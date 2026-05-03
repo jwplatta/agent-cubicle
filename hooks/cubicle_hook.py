@@ -2,6 +2,9 @@
 import sys
 import json
 import os
+
+# Ensure the directory containing this script is in the path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from db import insert_telemetry
 
 def get_llm_family(payload):
@@ -23,17 +26,40 @@ def get_llm_family(payload):
     return "unknown"
 
 EVENT_MAPPING = {
+    # Lifecycle
     "SessionStart": "session_start",
     "SessionEnd": "session_end",
+    "Stop": "session_end",
+    "Setup": "setup",
+
+    # Tools
     "BeforeTool": "pre_tool_use",
     "PreToolUse": "pre_tool_use",
     "AfterTool": "post_tool_use",
     "PostToolUse": "post_tool_use",
-    "BeforeModel": "pre_model",
-    "AfterModel": "post_model",
+    "PostToolBatch": "post_tool_batch",
+
+    # Permissions
+    "PermissionRequest": "permission_request",
+    "PermissionDenied": "permission_denied",
+
+    # Prompts
     "BeforeAgent": "user_prompt_submit",
     "UserPromptSubmit": "user_prompt_submit",
-    "Stop": "session_end",
+    "UserPromptExpansion": "user_prompt_expansion",
+
+    # Model
+    "BeforeModel": "pre_model",
+    "AfterModel": "post_model",
+
+    # Advanced Agentic Events
+    "SubagentStart": "subagent_start",
+    "TaskCreated": "task_created",
+    "WorktreeCreate": "worktree_create",
+
+    # Specialized
+    "PreCompress": "pre_compress",
+    "Notification": "notification",
 }
 
 def main():
