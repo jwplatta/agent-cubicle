@@ -32,3 +32,6 @@ python_files = ["test_*.py"]
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
+
+[project.scripts]
+cubicle = "cubicle.cli:main"
