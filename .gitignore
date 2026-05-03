@@ -65,3 +65,8 @@ cover/
 
 # uv
 uv.lock
+
+# agents
+.gemini/skills
+.codex/skills
+.claude/skills
