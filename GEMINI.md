@@ -2,15 +2,17 @@
 
 ## Project Overview
 
-"Cubicle" is a unified hook manager for AI coding agents. It provides a standardized way to capture telemetry data from agents like Claude, Gemini, and Codex, normalizing their native events into a consistent format and storing them in a local SQLite database.
+"Cubicle" is a local harness and management tool for AI coding agents. It provides a central place to manage shared logic, configuration, and tools for different agent families (like Claude, Gemini, and Codex), ensuring a consistent and observable developer experience.
 
-The goal is to provide a single harness for capturing agent usage patterns without requiring complex per-agent setup.
+The goal is to minimize duplication and maximize the effectiveness of AI agents by centralizing:
+- **Shared Skills:** Reusable agent capabilities managed via `skillex`.
+- **Shared Configuration:** Centralized management of agent settings and operational boundaries.
+- **Unified Telemetry:** A standardized hook system to capture agent behavior across different models.
+- **Interoperability:** A common framework for agents to interact with local projects and shared resources.
 
-## Key Features
+## Key Current Feature: Unified Hooks
 
-- **Unified Hooks:** Standardized Python scripts that capture input/output and tool usage across different LLM families.
-- **Telemetry Database:** A central SQLite database at `~/.cubicle/data/telemetry.db` for easy querying of agent activity.
-- **Clean Installation:** A CLI tool that installs standalone hook scripts into agent-specific home directories, ensuring they remain independent of the core repository's state.
+Cubicle currently provides a standardized way to capture telemetry data from agents like Claude, Gemini, and Codex, normalizing their native events into a consistent format and storing them in a local SQLite database at `~/.cubicle/data/telemetry.db`.
 
 ## Installation
 
@@ -18,24 +20,26 @@ The goal is to provide a single harness for capturing agent usage patterns witho
 # Install the cubicle CLI globally (in editable mode for development)
 pip install -e .
 
-# Initialize hooks for a specific agent
+# Initialize telemetry hooks for a specific agent
 cubicle init-hooks --agent gemini
 ```
 
-## Commands
+## CLI Usage
 
-- `cubicle init-hooks --agent <name>`: Installs telemetry hooks for the specified agent (claude, gemini, codex, or copilot).
-- `cubicle clean --agent <name>`: Removes cubicle hooks from the specified agent.
+- `cubicle init-hooks --agent <name>`: Installs telemetry hooks and registers them in agent settings.
+- `cubicle del-hooks --agent <name>`: Removes cubicle hooks and unregisters them.
 
-## Telemetry Data
+## Telemetry Database Schema
 
-Telemetry is stored in a hybrid schema:
-- **`timestamp`**: When the event occurred.
+Stored in `~/.cubicle/data/telemetry.db`:
+- **`timestamp`**: UTC time of the event.
 - **`llm_family`**: gemini, claude, codex, etc.
 - **`event_type`**: Normalized event name (e.g., `pre_tool_use`, `session_start`).
 - **`raw_payload`**: The complete JSON object provided by the agent.
 
-Query the data:
-```bash
-sqlite3 ~/.cubicle/data/telemetry.db "SELECT * FROM telemetry;"
-```
+## Future Vision
+
+Cubicle will expand to become the primary local entry point for complex agent workflows, including:
+- Automated pull request management.
+- Task orchestration via Todoist or local backlogs.
+- Shared memory and context across different agent sessions.

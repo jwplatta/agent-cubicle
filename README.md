@@ -1,13 +1,17 @@
 # Cubicle
 
-Cubicle is a unified hook manager and telemetry harness for AI coding agents. It provides a standardized way to capture and normalize usage data from Claude, Gemini, and Codex, storing everything in a central local SQLite database.
+Cubicle is a local harness and management tool for AI coding agents. It provides a central place to manage shared logic, configuration, and tools for different agent families (like Claude, Gemini, and Codex), ensuring a consistent and observable developer experience.
 
-## Why I Built This
+The goal of Cubicle is to eliminate duplication across different agent setups and provide a single interface for extending agent capabilities.
 
-- **Unified Telemetry:** Capture a global timeline of agent "thinking" and "actions" across different LLM families.
-- **Event Normalization:** Maps agent-specific lifecycle events (e.g., `BeforeTool`, `PreToolUse`) to a consistent lowercase standard.
-- **Passive Observation:** Non-blocking hook implementation that doesn't interfere with agent performance or results.
-- **Independent Installation:** Standalone hook scripts are copied to a central hub, decoupling telemetry from active development of this repo.
+## Current Features
+
+### 1. Unified Telemetry Harness
+A standardized way to capture and normalize usage data across different LLM families, storing everything in a central local SQLite database.
+
+- **Event Normalization:** Maps agent-specific lifecycle events (e.g., `BeforeTool`, `PreToolUse`) to a consistent standard.
+- **Centralized Storage:** A SQLite database at `~/.cubicle/data/telemetry.db` for easy querying of agent activity.
+- **Passive Observation:** Non-blocking hook implementation that doesn't interfere with agent performance.
 
 ## Setup Guide
 
@@ -39,27 +43,25 @@ cubicle init-hooks --agent codex
 
 This command installs stable hook scripts to `~/.cubicle/hooks/` and automatically registers them in your agent's global settings (e.g., `~/.claude/settings.json`).
 
-## Usage & Telemetry
+## Telemetry Usage
 
-Once initialized, Cubicle captures every tool use, prompt submission, and session event in the background.
+Once initialized, Cubicle captures tool use, prompt submission, and session events in the background.
 
 ### Querying Data
-Telemetry is stored in a SQLite database at `~/.cubicle/data/telemetry.db`. You can query it using standard tools:
+Query the SQLite database at `~/.cubicle/data/telemetry.db`:
 
 ```bash
 sqlite3 ~/.cubicle/data/telemetry.db "SELECT timestamp, llm_family, event_type FROM telemetry ORDER BY id DESC LIMIT 10;"
 ```
 
 ### Removing Hooks
-If you need to stop capturing telemetry for a specific agent:
-
 ```bash
 cubicle del-hooks --agent gemini
 ```
 
 ## Related Tools
-Skills are managed separately via the [skillex](https://github.com/jwplatta/skillex) utility. Cubicle focuses exclusively on the telemetry harness and event normalization.
+- **[skillex](https://github.com/jwplatta/skillex):** Manages versioned agent skills. Cubicle and Skillex work together to provide a robust shared environment for coding agents.
 
 ## Notes
-- The hooks are designed to be "fail-safe" and will not block the agent if the database is locked or an error occurs.
+- The hooks are designed to be "fail-safe" and will not block the agent if an error occurs.
 - The raw JSON payload from every event is preserved in the `raw_payload` column for future analysis.
