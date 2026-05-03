@@ -13,7 +13,7 @@ def get_llm_family(payload):
         return "gemini"
     if os.environ.get("CLAUDE_PROJECT_DIR") or os.environ.get("CLAUDE_ENV_FILE"):
         return "claude"
-    if os.environ.get("CODEX_PROJECT_DIR"):
+    if os.environ.get("CODEX_PROJECT_DIR") or os.environ.get("CODEX_CWD") or os.environ.get("CODEX_SESSION_ID"):
         return "codex"
     
     # Check payload keys
