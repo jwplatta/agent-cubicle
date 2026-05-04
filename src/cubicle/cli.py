@@ -21,95 +21,7 @@ PACKAGE_ROOT = Path(__file__).parent
 CUBICLE_HOME = Path.home() / ".cubicle"
 HOOKS_INSTALL_DIR = CUBICLE_HOME / "hooks"
 CUBICLE_CONFIG = CUBICLE_HOME / "config.yaml"
-
-DEFAULT_CONFIG = {
-    "agents": {
-        "claude": {
-            "event_mapping": {
-                "SessionStart": "session_start",
-                "SessionEnd": "session_end",
-                "Stop": "session_end",
-                "Setup": "setup",
-                "PreToolUse": "pre_tool_use",
-                "PostToolUse": "post_tool_use",
-                "PostToolBatch": "post_tool_batch",
-                "PermissionRequest": "permission_request",
-                "PermissionDenied": "permission_denied",
-                "UserPromptSubmit": "user_prompt_submit",
-                "UserPromptExpansion": "user_prompt_expansion",
-                "BeforeModel": "pre_model",
-                "AfterModel": "post_model",
-                "SubagentStart": "subagent_start",
-                "TaskCreated": "task_created",
-                "WorktreeCreate": "worktree_create",
-                "PreCompress": "pre_compress",
-                "Notification": "notification",
-            }
-        },
-        "gemini": {
-            "event_mapping": {
-                "SessionStart": "session_start",
-                "SessionEnd": "session_end",
-                "Setup": "setup",
-                "BeforeTool": "pre_tool_use",
-                "AfterTool": "post_tool_use",
-                "PostToolBatch": "post_tool_batch",
-                "PermissionRequest": "permission_request",
-                "PermissionDenied": "permission_denied",
-                "BeforeAgent": "user_prompt_submit",
-                "BeforeModel": "pre_model",
-                "AfterModel": "post_model",
-                "SubagentStart": "subagent_start",
-                "TaskCreated": "task_created",
-                "WorktreeCreate": "worktree_create",
-                "PreCompress": "pre_compress",
-                "Notification": "notification",
-            }
-        },
-        "codex": {
-            "event_mapping": {
-                "SessionStart": "session_start",
-                "SessionEnd": "session_end",
-                "Stop": "session_end",
-                "Setup": "setup",
-                "PreToolUse": "pre_tool_use",
-                "PostToolUse": "post_tool_use",
-                "PostToolBatch": "post_tool_batch",
-                "PermissionRequest": "permission_request",
-                "PermissionDenied": "permission_denied",
-                "UserPromptSubmit": "user_prompt_submit",
-                "UserPromptExpansion": "user_prompt_expansion",
-                "BeforeModel": "pre_model",
-                "AfterModel": "post_model",
-                "SubagentStart": "subagent_start",
-                "TaskCreated": "task_created",
-                "WorktreeCreate": "worktree_create",
-                "PreCompress": "pre_compress",
-                "Notification": "notification",
-            }
-        },
-        "copilot": {
-            "event_mapping": {
-                "SessionStart": "session_start",
-                "SessionEnd": "session_end",
-                "Stop": "session_end",
-                "Setup": "setup",
-                "PreToolUse": "pre_tool_use",
-                "PostToolUse": "post_tool_use",
-                "PermissionRequest": "permission_request",
-                "PermissionDenied": "permission_denied",
-                "UserPromptSubmit": "user_prompt_submit",
-                "BeforeModel": "pre_model",
-                "AfterModel": "post_model",
-                "SubagentStart": "subagent_start",
-                "TaskCreated": "task_created",
-                "WorktreeCreate": "worktree_create",
-                "PreCompress": "pre_compress",
-                "Notification": "notification",
-            }
-        },
-    }
-}
+DEFAULT_CONFIG = PACKAGE_ROOT / "default_config.yaml"
 
 def die(message):
     print(f"Error: {message}", file=sys.stderr)
@@ -149,8 +61,7 @@ def init_config():
     if CUBICLE_CONFIG.exists():
         print(f"Config already exists at {CUBICLE_CONFIG}")
         return
-    with open(CUBICLE_CONFIG, "w") as f:
-        yaml.dump(DEFAULT_CONFIG, f, default_flow_style=False, sort_keys=False)
+    shutil.copy2(DEFAULT_CONFIG, CUBICLE_CONFIG)
     print(f"Created config at {CUBICLE_CONFIG}")
 
 def update_json_settings(agent, settings_path, hook_script, events):
