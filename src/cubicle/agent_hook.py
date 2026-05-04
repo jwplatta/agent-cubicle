@@ -15,6 +15,8 @@ def get_llm_family(payload):
         return "claude"
     if os.environ.get("CODEX_PROJECT_DIR") or os.environ.get("CODEX_CWD") or os.environ.get("CODEX_SESSION_ID"):
         return "codex"
+    if os.environ.get("COPILOT_PROJECT_DIR") or os.environ.get("COPILOT_SESSION_ID"):
+        return "copilot"
     
     # Check payload keys
     if "hook_event_name" in payload and any(k in payload for k in ["transcript_path", "tool_use"]):

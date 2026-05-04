@@ -280,17 +280,31 @@ def init_hooks(agent=None, force=False):
     if agent:
         central_hook = HOOKS_INSTALL_DIR / "cubicle_hook.py"
         home_dir = get_agent_home(agent)
-        events = ["SessionStart", "SessionEnd", "PreToolUse", "PostToolUse", "Stop"]
+        
+        # Common events across all agents
+        base_events = [
+            "SessionStart", "SessionEnd", "Setup",
+            "PermissionRequest", "PermissionDenied",
+            "BeforeModel", "AfterModel",
+            "SubagentStart", "TaskCreated", "WorktreeCreate",
+            "PreCompress", "Notification"
+        ]
         
         if agent == "gemini":
-            events = ["SessionStart", "SessionEnd", "BeforeTool", "AfterTool", "BeforeAgent"]
+            events = base_events + ["BeforeTool", "AfterTool", "PostToolBatch", "BeforeAgent"]
             update_json_settings(agent, home_dir / "settings.json", central_hook, events)
 
         elif agent == "claude":
+            events = base_events + ["PreToolUse", "PostToolUse", "PostToolBatch", "Stop", "UserPromptSubmit", "UserPromptExpansion"]
             update_json_settings(agent, home_dir / "settings.json", central_hook, events)
 
         elif agent == "codex":
+            events = base_events + ["PreToolUse", "PostToolUse", "PostToolBatch", "Stop", "UserPromptSubmit", "UserPromptExpansion"]
             update_codex_toml(home_dir / "config.toml", central_hook, events)
+
+        elif agent == "copilot":
+            events = base_events + ["PreToolUse", "PostToolUse", "Stop", "UserPromptSubmit"]
+            update_json_settings(agent, home_dir / "settings.json", central_hook, events)
         
         print(f"Hooks registered for {agent} pointing to {central_hook}")
     elif not force:
@@ -307,6 +321,8 @@ def del_hooks(agent):
         remove_json_settings(home_dir / "settings.json", central_hook)
     elif agent == "codex":
         remove_codex_toml(home_dir / "config.toml", central_hook)
+    elif agent == "copilot":
+        remove_json_settings(home_dir / "settings.json", central_hook)
 
 def main():
     parser = argparse.ArgumentParser(
