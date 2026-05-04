@@ -44,7 +44,7 @@ agents:
       PermissionDenied: permission_denied
       Notification: notification
       SubagentStart: agent_start
-      SubagentStop:	agent_stop
+      SubagentStop: agent_stop
       TaskCreated: task_created
       TaskCompleted: task_completed
       Stop: agent_stop
