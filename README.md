@@ -47,11 +47,27 @@ This command installs stable hook scripts to `~/.cubicle/hooks/` and automatical
 
 - `cubicle init-hooks [--agent <name>] [--force]`: Initializes centralized resources and/or registers hooks for an agent. Use `--force` to refresh code and reset the database.
 - `cubicle del-hooks --agent <name>`: Unregisters hooks from the specified agent.
+- `cubicle claude [args...]`: Exec the upstream `claude` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=claude` for that process tree.
+- `cubicle gemini [args...]`: Exec the upstream `gemini` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=gemini` for that process tree.
+- `cubicle codex [args...]`: Exec the upstream `codex` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=codex` for that process tree.
 - `cubicle help`: Shows this help message.
 
 ## Telemetry Usage
 
 Once initialized, Cubicle captures tool use, prompt submission, and session events in the background.
+
+### Agent Launch Wrappers
+Use the Cubicle wrappers when starting supported agent CLIs so the telemetry hook can identify the agent family reliably:
+
+```bash
+cubicle claude --help
+cubicle gemini chat --model gemini-2.5-pro
+cubicle codex exec "summarize the repo"
+```
+
+Cubicle sets `CUBICLE_LLM_FAMILY` in the launched process environment and then hands off with an exec-style launch. The variable only exists in that process tree; it does not persist in your shell after the command exits.
+
+Direct agent launches outside the wrapper are treated as `unknown` unless `CUBICLE_LLM_FAMILY` is already set externally.
 
 ### Querying Data
 Query the SQLite database at `~/.cubicle/data/telemetry.db`:

@@ -10,37 +10,13 @@ import yaml
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from db import insert_telemetry
 
+SUPPORTED_LLM_FAMILIES = {"claude", "gemini", "codex", "copilot"}
+
+
 def get_llm_family(payload):
-    # Check environment variables
-    if os.environ.get("GEMINI_CWD") or os.environ.get("GEMINI_PROJECT_DIR"):
-        return "gemini"
-    if os.environ.get("CLAUDE_PROJECT_DIR") or os.environ.get("CLAUDE_ENV_FILE"):
-        return "claude"
-    if (
-        os.environ.get("CODEX_PROJECT_DIR")
-        or os.environ.get("CODEX_CWD")
-        or os.environ.get("CODEX_SESSION_ID")
-        or os.environ.get("CODEX_THREAD_ID")
-        or os.environ.get("CODEX_HOME")
-        or os.environ.get("CODEX_SANDBOX")
-    ):
-        return "codex"
-    if os.environ.get("COPILOT_PROJECT_DIR") or os.environ.get("COPILOT_SESSION_ID"):
-        return "copilot"
-
-    # Check payload keys when env detection is unavailable.
-    transcript_path = payload.get("transcript_path", "")
-    if isinstance(transcript_path, str):
-        if "/.codex/" in transcript_path:
-            return "codex"
-        if "/.claude/" in transcript_path:
-            return "claude"
-
-    # Codex hook payloads consistently use hook_event_name and a cwd field.
-    if payload.get("hook_event_name") and payload.get("cwd"):
-        return "codex"
-
-    # Default if unknown
+    family = os.environ.get("CUBICLE_LLM_FAMILY", "").strip().lower()
+    if family in SUPPORTED_LLM_FAMILIES:
+        return family
     return "unknown"
 
 def _load_event_mapping(agent):

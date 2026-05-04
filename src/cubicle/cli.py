@@ -22,10 +22,25 @@ CUBICLE_HOME = Path.home() / ".cubicle"
 HOOKS_INSTALL_DIR = CUBICLE_HOME / "hooks"
 CUBICLE_CONFIG = CUBICLE_HOME / "config.yaml"
 DEFAULT_CONFIG = PACKAGE_ROOT / "default_config.yaml"
+LLM_WRAPPERS = {
+    "claude": "claude",
+    "gemini": "gemini",
+    "codex": "codex",
+}
 
 def die(message):
     print(f"Error: {message}", file=sys.stderr)
     sys.exit(1)
+
+
+def launch_agent(agent, argv):
+    executable = shutil.which(agent)
+    if executable is None:
+        die(f"Could not find '{agent}' on PATH")
+
+    env = os.environ.copy()
+    env["CUBICLE_LLM_FAMILY"] = agent
+    os.execvpe(executable, [agent, *argv], env)
 
 def ensure_copy(source, target):
     source = Path(source).absolute()
@@ -341,7 +356,14 @@ def del_hooks(agent):
     elif agent == "copilot":
         remove_json_settings(home_dir / "settings.json", central_hook)
 
-def main():
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
+
+    if argv and argv[0] in LLM_WRAPPERS:
+        launch_agent(argv[0], argv[1:])
+        return
+
     parser = argparse.ArgumentParser(
         description="Cubicle: A management tool for shared AI agent resources and telemetry.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -358,6 +380,11 @@ Examples:
 
   # Remove hooks from an agent
   cubicle del-hooks --agent claude
+
+  # Launch an agent through Cubicle and tag the process tree for telemetry
+  cubicle claude --help
+  cubicle gemini chat --model gemini-2.5-pro
+  cubicle codex exec "fix the failing test"
         """
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -402,7 +429,15 @@ Examples:
     # Help command
     subparsers.add_parser("help", help="Show this help message")
 
-    args = parser.parse_args()
+    for agent in LLM_WRAPPERS:
+        subparsers.add_parser(
+            agent,
+            add_help=False,
+            help=f"Launch the upstream {agent} CLI with CUBICLE_LLM_FAMILY={agent}",
+            description=f"Execs the upstream {agent} CLI and forwards all trailing arguments verbatim."
+        )
+
+    args = parser.parse_args(argv)
 
     if args.command == "init":
         init_config()
