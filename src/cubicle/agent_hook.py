@@ -16,17 +16,30 @@ def get_llm_family(payload):
         return "gemini"
     if os.environ.get("CLAUDE_PROJECT_DIR") or os.environ.get("CLAUDE_ENV_FILE"):
         return "claude"
-    if os.environ.get("CODEX_PROJECT_DIR") or os.environ.get("CODEX_CWD") or os.environ.get("CODEX_SESSION_ID"):
+    if (
+        os.environ.get("CODEX_PROJECT_DIR")
+        or os.environ.get("CODEX_CWD")
+        or os.environ.get("CODEX_SESSION_ID")
+        or os.environ.get("CODEX_THREAD_ID")
+        or os.environ.get("CODEX_HOME")
+        or os.environ.get("CODEX_SANDBOX")
+    ):
         return "codex"
     if os.environ.get("COPILOT_PROJECT_DIR") or os.environ.get("COPILOT_SESSION_ID"):
         return "copilot"
-    
-    # Check payload keys
-    if "hook_event_name" in payload and any(k in payload for k in ["transcript_path", "tool_use"]):
-        # Claude/Codex specific keys often found in hooks
-        if "PreToolUse" in payload.get("hook_event_name", ""):
-             return "claude" # Heuristic
-    
+
+    # Check payload keys when env detection is unavailable.
+    transcript_path = payload.get("transcript_path", "")
+    if isinstance(transcript_path, str):
+        if "/.codex/" in transcript_path:
+            return "codex"
+        if "/.claude/" in transcript_path:
+            return "claude"
+
+    # Codex hook payloads consistently use hook_event_name and a cwd field.
+    if payload.get("hook_event_name") and payload.get("cwd"):
+        return "codex"
+
     # Default if unknown
     return "unknown"
 
@@ -50,11 +63,12 @@ def main():
         payload = json.loads(input_data)
 
         llm_family = get_llm_family(payload)
-        event_mapping = _load_event_mapping(llm_family)
-
         # Standardize event name
         native_event = payload.get("hook_event_name") or payload.get("event")
-        normalized_event = event_mapping.get(native_event, native_event.lower() if native_event else "unknown")
+        normalized_event = native_event.lower() if native_event else "unknown"
+        if llm_family != "unknown":
+            event_mapping = _load_event_mapping(llm_family)
+            normalized_event = event_mapping.get(native_event, normalized_event)
 
         session_id = payload.get("session_id")
         model = payload.get("model")
