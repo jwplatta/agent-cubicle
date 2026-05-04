@@ -5,6 +5,8 @@ import shutil
 import sys
 from pathlib import Path
 
+import yaml
+
 # Try to import tomli/tomllib for TOML handling
 try:
     import tomllib  # Python 3.11+
@@ -18,6 +20,8 @@ except ImportError:
 PACKAGE_ROOT = Path(__file__).parent
 CUBICLE_HOME = Path.home() / ".cubicle"
 HOOKS_INSTALL_DIR = CUBICLE_HOME / "hooks"
+CUBICLE_CONFIG = CUBICLE_HOME / "config.yaml"
+DEFAULT_CONFIG = PACKAGE_ROOT / "default_config.yaml"
 
 def die(message):
     print(f"Error: {message}", file=sys.stderr)
@@ -46,6 +50,33 @@ def get_agent_home(agent):
     if agent not in homes:
         die(f"Unknown agent: {agent}")
     return homes[agent]
+
+def validate_config(cfg):
+    known_events = set(cfg.get("events", []))
+    if not known_events:
+        die("config.yaml is missing the top-level 'events' list")
+    errors = []
+    for agent, agent_cfg in cfg.get("agents", {}).items():
+        for native, canonical in agent_cfg.get("event_mapping", {}).items():
+            if canonical not in known_events:
+                errors.append(f"  [{agent}] {native} -> '{canonical}' is not a defined cubicle event")
+    if errors:
+        die("Invalid event mappings in config.yaml:\n" + "\n".join(errors))
+
+def load_config():
+    with open(CUBICLE_CONFIG) as f:
+        cfg = yaml.safe_load(f)
+    validate_config(cfg)
+    return cfg
+
+def init_config():
+    CUBICLE_HOME.mkdir(parents=True, exist_ok=True)
+    (CUBICLE_HOME / "data").mkdir(exist_ok=True)
+    if CUBICLE_CONFIG.exists():
+        print(f"Config already exists at {CUBICLE_CONFIG}")
+        return
+    shutil.copy2(DEFAULT_CONFIG, CUBICLE_CONFIG)
+    print(f"Created config at {CUBICLE_CONFIG}")
 
 def update_json_settings(agent, settings_path, hook_script, events):
     if not settings_path.exists():
@@ -280,30 +311,16 @@ def init_hooks(agent=None, force=False):
     if agent:
         central_hook = HOOKS_INSTALL_DIR / "cubicle_hook.py"
         home_dir = get_agent_home(agent)
-        
-        # Common events across all agents
-        base_events = [
-            "SessionStart", "SessionEnd", "Setup",
-            "PermissionRequest", "PermissionDenied",
-            "BeforeModel", "AfterModel",
-            "SubagentStart", "TaskCreated", "WorktreeCreate",
-            "PreCompress", "Notification"
-        ]
-        
+        cfg = load_config()
+        events = list(cfg["agents"][agent]["event_mapping"].keys())
+
         if agent == "gemini":
-            events = base_events + ["BeforeTool", "AfterTool", "PostToolBatch", "BeforeAgent"]
             update_json_settings(agent, home_dir / "settings.json", central_hook, events)
-
         elif agent == "claude":
-            events = base_events + ["PreToolUse", "PostToolUse", "PostToolBatch", "Stop", "UserPromptSubmit", "UserPromptExpansion"]
             update_json_settings(agent, home_dir / "settings.json", central_hook, events)
-
         elif agent == "codex":
-            events = base_events + ["PreToolUse", "PostToolUse", "PostToolBatch", "Stop", "UserPromptSubmit", "UserPromptExpansion"]
             update_codex_toml(home_dir / "config.toml", central_hook, events)
-
         elif agent == "copilot":
-            events = base_events + ["PreToolUse", "PostToolUse", "Stop", "UserPromptSubmit"]
             update_json_settings(agent, home_dir / "settings.json", central_hook, events)
         
         print(f"Hooks registered for {agent} pointing to {central_hook}")
@@ -375,12 +392,21 @@ Examples:
         help="The AI agent family to unregister"
     )
     
+    # Init command
+    subparsers.add_parser(
+        "init",
+        help="Create ~/.cubicle/config.yaml with default event mappings",
+        description="Creates ~/.cubicle/config.yaml if it doesn't exist, with default per-agent event mappings."
+    )
+
     # Help command
     subparsers.add_parser("help", help="Show this help message")
 
     args = parser.parse_args()
-    
-    if args.command == "init-hooks":
+
+    if args.command == "init":
+        init_config()
+    elif args.command == "init-hooks":
         init_hooks(agent=args.agent, force=args.force)
     elif args.command == "del-hooks":
         del_hooks(args.agent)
