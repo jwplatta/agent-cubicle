@@ -51,9 +51,23 @@ def get_agent_home(agent):
         die(f"Unknown agent: {agent}")
     return homes[agent]
 
+def validate_config(cfg):
+    known_events = set(cfg.get("events", []))
+    if not known_events:
+        die("config.yaml is missing the top-level 'events' list")
+    errors = []
+    for agent, agent_cfg in cfg.get("agents", {}).items():
+        for native, canonical in agent_cfg.get("event_mapping", {}).items():
+            if canonical not in known_events:
+                errors.append(f"  [{agent}] {native} -> '{canonical}' is not a defined cubicle event")
+    if errors:
+        die("Invalid event mappings in config.yaml:\n" + "\n".join(errors))
+
 def load_config():
     with open(CUBICLE_CONFIG) as f:
-        return yaml.safe_load(f)
+        cfg = yaml.safe_load(f)
+    validate_config(cfg)
+    return cfg
 
 def init_config():
     CUBICLE_HOME.mkdir(parents=True, exist_ok=True)

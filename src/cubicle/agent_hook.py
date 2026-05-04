@@ -34,7 +34,12 @@ def _load_event_mapping(agent):
     config_path = Path.home() / ".cubicle" / "config.yaml"
     with open(config_path) as f:
         cfg = yaml.safe_load(f)
-    return cfg["agents"][agent]["event_mapping"]
+    known_events = set(cfg["events"])
+    mapping = cfg["agents"][agent]["event_mapping"]
+    invalid = {k: v for k, v in mapping.items() if v not in known_events}
+    if invalid:
+        raise ValueError(f"Invalid cubicle event names in mapping for {agent}: {invalid}")
+    return mapping
 
 def main():
     try:

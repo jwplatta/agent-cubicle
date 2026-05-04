@@ -1,3 +1,22 @@
+events:
+  - session_start
+  - session_end
+  - setup
+  - pre_tool_use
+  - post_tool_use
+  - post_tool_batch
+  - permission_request
+  - permission_denied
+  - user_prompt_submit
+  - user_prompt_expansion
+  - pre_model
+  - post_model
+  - subagent_start
+  - task_created
+  - worktree_create
+  - pre_compress
+  - notification
+
 agents:
   claude:
     event_mapping:
