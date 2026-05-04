@@ -1,5 +1,0 @@
-{
-  "/Users/jplatta/repos/agent-cubicle": [
-    "tool-logger:$GEMINI_PROJECT_DIR/.gemini/hooks/log-tools.sh"
-  ]
-}
