@@ -9,7 +9,8 @@ dependencies = [
   "ollama",
   "openrouter",
   "dotenv",
-  "requests"
+  "requests",
+  "pyyaml"
 ]
 
 [project.optional-dependencies]
