@@ -1,11 +1,13 @@
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
 
 import yaml
+from dotenv import dotenv_values
 
 # Try to import tomli/tomllib for TOML handling
 try:
@@ -21,16 +23,66 @@ PACKAGE_ROOT = Path(__file__).parent
 CUBICLE_HOME = Path.home() / ".cubicle"
 HOOKS_INSTALL_DIR = CUBICLE_HOME / "hooks"
 CUBICLE_CONFIG = CUBICLE_HOME / "config.yaml"
+ENV_FILE = CUBICLE_HOME / ".env"
 DEFAULT_CONFIG = PACKAGE_ROOT / "default_config.yaml"
 LLM_WRAPPERS = {
     "claude": "claude",
     "gemini": "gemini",
     "codex": "codex",
 }
+ENV_VAR_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 def die(message):
     print(f"Error: {message}", file=sys.stderr)
     sys.exit(1)
+
+
+def ensure_cubicle_home():
+    CUBICLE_HOME.mkdir(parents=True, exist_ok=True)
+
+
+def validate_env_name(name):
+    if not ENV_VAR_NAME_RE.match(name):
+        die(f"Invalid environment variable name: {name}")
+
+
+def load_shared_env():
+    if not ENV_FILE.exists():
+        return {}
+
+    loaded = dotenv_values(ENV_FILE)
+    return {key: value if value is not None else "" for key, value in loaded.items()}
+
+
+def write_shared_env(env_vars):
+    ensure_cubicle_home()
+    with open(ENV_FILE, "w") as f:
+        for key, value in env_vars.items():
+            encoded = json.dumps(value)
+            f.write(f"{key}={encoded}\n")
+
+
+def set_env_var(name, value):
+    validate_env_name(name)
+    env_vars = load_shared_env()
+    env_vars[name] = value
+    write_shared_env(env_vars)
+    print(f"Set {name} in {ENV_FILE}")
+
+
+def unset_env_var(name):
+    validate_env_name(name)
+    env_vars = load_shared_env()
+    if name in env_vars:
+        del env_vars[name]
+        write_shared_env(env_vars)
+        print(f"Removed {name} from {ENV_FILE}")
+
+
+def list_env_vars():
+    env_vars = load_shared_env()
+    for name, value in env_vars.items():
+        print(f"{name}={value}")
 
 
 def launch_agent(agent, argv):
@@ -39,6 +91,7 @@ def launch_agent(agent, argv):
         die(f"Could not find '{agent}' on PATH")
 
     env = os.environ.copy()
+    env.update(load_shared_env())
     env["CUBICLE_LLM_FAMILY"] = agent
     os.execvpe(executable, [agent, *argv], env)
 
@@ -85,7 +138,7 @@ def load_config():
     return cfg
 
 def init_config():
-    CUBICLE_HOME.mkdir(parents=True, exist_ok=True)
+    ensure_cubicle_home()
     (CUBICLE_HOME / "data").mkdir(exist_ok=True)
     if CUBICLE_CONFIG.exists():
         print(f"Config already exists at {CUBICLE_CONFIG}")
@@ -426,6 +479,27 @@ Examples:
         description="Creates ~/.cubicle/config.yaml if it doesn't exist, with default per-agent event mappings."
     )
 
+    set_env_parser = subparsers.add_parser(
+        "set-env",
+        help="Set a shared env var for Cubicle-launched agents",
+        description="Stores NAME=VALUE in ~/.cubicle/.env for Cubicle wrapper launches."
+    )
+    set_env_parser.add_argument("name", help="Environment variable name")
+    set_env_parser.add_argument("value", help="Environment variable value")
+
+    unset_env_parser = subparsers.add_parser(
+        "unset-env",
+        help="Remove a shared env var",
+        description="Removes NAME from ~/.cubicle/.env if present."
+    )
+    unset_env_parser.add_argument("name", help="Environment variable name")
+
+    subparsers.add_parser(
+        "list-env",
+        help="List shared env vars",
+        description="Prints env vars stored in ~/.cubicle/.env."
+    )
+
     # Help command
     subparsers.add_parser("help", help="Show this help message")
 
@@ -441,6 +515,12 @@ Examples:
 
     if args.command == "init":
         init_config()
+    elif args.command == "set-env":
+        set_env_var(args.name, args.value)
+    elif args.command == "unset-env":
+        unset_env_var(args.name)
+    elif args.command == "list-env":
+        list_env_vars()
     elif args.command == "init-hooks":
         init_hooks(agent=args.agent, force=args.force)
     elif args.command == "del-hooks":

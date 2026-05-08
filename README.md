@@ -47,9 +47,12 @@ This command installs stable hook scripts to `~/.cubicle/hooks/` and automatical
 
 - `cubicle init-hooks [--agent <name>] [--force]`: Initializes centralized resources and/or registers hooks for an agent. Use `--force` to refresh code and reset the database.
 - `cubicle del-hooks --agent <name>`: Unregisters hooks from the specified agent.
-- `cubicle claude [args...]`: Exec the upstream `claude` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=claude` for that process tree.
-- `cubicle gemini [args...]`: Exec the upstream `gemini` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=gemini` for that process tree.
-- `cubicle codex [args...]`: Exec the upstream `codex` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=codex` for that process tree.
+- `cubicle set-env NAME VALUE`: Stores a shared env var in `~/.cubicle/.env` for Cubicle-launched agents.
+- `cubicle unset-env NAME`: Removes a shared env var from `~/.cubicle/.env`.
+- `cubicle list-env`: Prints the shared env vars stored in `~/.cubicle/.env`.
+- `cubicle claude [args...]`: Exec the upstream `claude` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=claude` plus any shared vars from `~/.cubicle/.env` for that process tree.
+- `cubicle gemini [args...]`: Exec the upstream `gemini` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=gemini` plus any shared vars from `~/.cubicle/.env` for that process tree.
+- `cubicle codex [args...]`: Exec the upstream `codex` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=codex` plus any shared vars from `~/.cubicle/.env` for that process tree.
 - `cubicle help`: Shows this help message.
 
 ## Telemetry Usage
@@ -66,6 +69,17 @@ cubicle codex exec "summarize the repo"
 ```
 
 Cubicle sets `CUBICLE_LLM_FAMILY` in the launched process environment and then hands off with an exec-style launch. The variable only exists in that process tree; it does not persist in your shell after the command exits.
+
+If `~/.cubicle/.env` exists, Cubicle also loads those shared env vars into the launched agent process. This is the supported way to provide shared credentials or tool configuration to agents, MCP servers, and child tools started from a Cubicle wrapper.
+
+Manage the file with:
+
+```bash
+cubicle set-env OPENAI_API_KEY sk-...
+cubicle set-env ANTHROPIC_API_KEY some-value
+cubicle list-env
+cubicle unset-env ANTHROPIC_API_KEY
+```
 
 Direct agent launches outside the wrapper are treated as `unknown` unless `CUBICLE_LLM_FAMILY` is already set externally.
 
