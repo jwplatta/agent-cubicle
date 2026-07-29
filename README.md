@@ -53,6 +53,7 @@ This command installs stable hook scripts to `~/.cubicle/hooks/` and automatical
 - `cubicle claude [args...]`: Exec the upstream `claude` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=claude` plus any shared vars from `~/.cubicle/.env` for that process tree.
 - `cubicle gemini [args...]`: Exec the upstream `gemini` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=gemini` plus any shared vars from `~/.cubicle/.env` for that process tree.
 - `cubicle codex [args...]`: Exec the upstream `codex` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=codex` plus any shared vars from `~/.cubicle/.env` for that process tree.
+- Add `--observe` to a wrapper command to route that agent through the local MLflow gateway for observability.
 - `cubicle help`: Shows this help message.
 
 ## Telemetry Usage
@@ -69,6 +70,16 @@ cubicle codex exec "summarize the repo"
 ```
 
 Cubicle sets `CUBICLE_LLM_FAMILY` in the launched process environment and then hands off with an exec-style launch. The variable only exists in that process tree; it does not persist in your shell after the command exits.
+
+To route model calls through a local MLflow gateway, add `--observe` to the Cubicle wrapper command:
+
+```bash
+cubicle claude --observe
+cubicle gemini --observe
+cubicle codex --observe exec "summarize the repo"
+```
+
+By default, Cubicle expects the MLflow gateway at `http://127.0.0.1:5000`. Set `CUBICLE_MLFLOW_GATEWAY_URL` before launch to point at a different gateway. Without `--observe`, the wrappers launch agents without MLflow routing.
 
 If `~/.cubicle/.env` exists, Cubicle also loads those shared env vars into the launched agent process. This is the supported way to provide shared credentials or tool configuration to agents, MCP servers, and child tools started from a Cubicle wrapper.
 

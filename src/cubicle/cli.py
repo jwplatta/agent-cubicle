@@ -30,6 +30,7 @@ LLM_WRAPPERS = {
     "gemini": "gemini",
     "codex": "codex",
 }
+DEFAULT_MLFLOW_GATEWAY_URL = "http://127.0.0.1:5000"
 ENV_VAR_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 def die(message):
@@ -85,7 +86,30 @@ def list_env_vars():
         print(f"{name}={value}")
 
 
-def launch_agent(agent, argv):
+def mlflow_gateway_url():
+    return os.environ.get("CUBICLE_MLFLOW_GATEWAY_URL", DEFAULT_MLFLOW_GATEWAY_URL).rstrip("/")
+
+
+def apply_mlflow_observability(agent, argv, env):
+    gateway_url = mlflow_gateway_url()
+
+    if agent == "gemini":
+        env["GOOGLE_GEMINI_BASE_URL"] = f"{gateway_url}/gateway/proxy/gemini-cli"
+        return argv
+    if agent == "claude":
+        env["ANTHROPIC_BASE_URL"] = f"{gateway_url}/gateway/proxy/claude-code"
+        return argv
+    if agent == "codex":
+        return [
+            "--config",
+            f'openai_base_url="{gateway_url}/gateway/proxy/codex/v1"',
+            *argv,
+        ]
+
+    die(f"MLflow observability is not configured for '{agent}'")
+
+
+def launch_agent(agent, argv, observability=False):
     executable = shutil.which(agent)
     if executable is None:
         die(f"Could not find '{agent}' on PATH")
@@ -93,7 +117,22 @@ def launch_agent(agent, argv):
     env = os.environ.copy()
     env.update(load_shared_env())
     env["CUBICLE_LLM_FAMILY"] = agent
+    if observability:
+        argv = apply_mlflow_observability(agent, argv, env)
     os.execvpe(executable, [agent, *argv], env)
+
+
+def parse_wrapper_args(argv):
+    observability = False
+    forwarded = []
+
+    for arg in argv:
+        if arg == "--observe":
+            observability = True
+        else:
+            forwarded.append(arg)
+
+    return forwarded, observability
 
 def ensure_copy(source, target):
     source = Path(source).absolute()
@@ -414,7 +453,8 @@ def main(argv=None):
         argv = sys.argv[1:]
 
     if argv and argv[0] in LLM_WRAPPERS:
-        launch_agent(argv[0], argv[1:])
+        agent_argv, observability = parse_wrapper_args(argv[1:])
+        launch_agent(argv[0], agent_argv, observability=observability)
         return
 
     parser = argparse.ArgumentParser(
@@ -438,6 +478,11 @@ Examples:
   cubicle claude --help
   cubicle gemini chat --model gemini-2.5-pro
   cubicle codex exec "fix the failing test"
+
+  # Route agent model calls through a local MLflow gateway
+  cubicle claude --observe
+  cubicle gemini --observe
+  cubicle codex --observe exec "fix the failing test"
         """
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
