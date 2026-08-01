@@ -63,7 +63,7 @@ Cubicle should not own per-project dependency state beyond launching the agent i
 - Keep the subject line under 72 characters.
 - Do not end the subject line with a period.
 - Use the body to explain what changed and why when a body is warranted.
-- Include `Co-Authored-By: jwplatta <jwplatta@users.noreply.github.com>`.
+- Do not add Co-Authored-By or any other attribution trailers.
 
 ## Environment Notes
 
