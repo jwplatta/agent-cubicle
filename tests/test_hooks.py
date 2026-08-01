@@ -1,17 +1,20 @@
 import json
-import subprocess
 import sqlite3
+import subprocess
 from pathlib import Path
 
 import yaml
 
-HOOK_PATH = Path(__file__).resolve().parents[1] / "src" / "cubicle" / "agent_hook.py"
-AGENT_ENV_PREFIXES = ("CODEX_", "CLAUDE_", "GEMINI_", "COPILOT_")
+SRC_DIR = Path(__file__).resolve().parents[1] / "src" / "cubicle"
+CLAUDE_HOOK_PATH = SRC_DIR / "claude_hook.py"
+CODEX_HOOK_PATH = SRC_DIR / "codex_hook.py"
+GEMINI_HOOK_PATH = SRC_DIR / "gemini_hook.py"
+
 
 def write_config(home_dir):
     config_dir = home_dir / ".cubicle"
     config_dir.mkdir(parents=True, exist_ok=True)
-    source_config = Path(__file__).resolve().parents[1] / "src" / "cubicle" / "default_config.yaml"
+    source_config = SRC_DIR / "default_config.yaml"
     with open(source_config) as f:
         config = yaml.safe_load(f)
     with open(config_dir / "config.yaml", "w") as f:
@@ -22,15 +25,11 @@ def db_path_for_home(home_dir):
     return home_dir / ".cubicle" / "data" / "telemetry.db"
 
 
-def run_hook(payload, home_dir, env=None):
-    base_env = {
-        key: value
-        for key, value in subprocess.os.environ.items()
-        if not key.startswith(AGENT_ENV_PREFIXES)
-    }
+def run_hook(hook_path, payload, home_dir, env=None):
+    base_env = {k: v for k, v in subprocess.os.environ.items()}
     base_env["HOME"] = str(home_dir)
     process = subprocess.Popen(
-        ["python3", str(HOOK_PATH)],
+        ["python3", str(hook_path)],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -39,121 +38,141 @@ def run_hook(payload, home_dir, env=None):
     stdout, stderr = process.communicate(input=json.dumps(payload).encode())
     return stdout.decode(), stderr.decode(), process.returncode
 
-def test_minimal():
-    print("Starting minimal verification of agent hooks...")
-    home_dir = Path(__file__).resolve().parents[1] / "tmp" / "test_hook_home"
-    write_config(home_dir)
-    db_path = db_path_for_home(home_dir)
-    test_session_ids = [
-        "gemini_test",
-        "claude_test",
-        "unknown_test",
-        "codex_env_test",
-        "heuristic_only_test",
-    ]
+
+def init_test_db(db_path, session_ids):
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(db_path) as conn:
-        conn.execute(
-            """
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS telemetry (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                 session_id TEXT,
-                llm_family TEXT,
                 event_type TEXT,
                 model TEXT,
                 raw_payload JSON
             )
-            """
-        )
+        """)
         conn.executemany(
             "DELETE FROM telemetry WHERE session_id = ?",
-            [(session_id,) for session_id in test_session_ids]
+            [(s,) for s in session_ids]
         )
         conn.commit()
-    
-    # 1. Test Gemini normalization
-    print("Testing Gemini normalization...")
+
+
+def test_gemini_hook():
+    print("Testing Gemini hook...")
+    home_dir = Path(__file__).resolve().parents[1] / "tmp" / "test_gemini_home"
+    write_config(home_dir)
+    db_path = db_path_for_home(home_dir)
+    init_test_db(db_path, ["gemini_test"])
+
     stdout, stderr, code = run_hook(
+        GEMINI_HOOK_PATH,
         {"hook_event_name": "BeforeTool", "session_id": "gemini_test", "model": "gemini-pro"},
         home_dir,
-        {"CUBICLE_LLM_FAMILY": "gemini"}
     )
     assert code == 0, f"Gemini hook failed: {stderr}"
     assert stdout.strip() == "{}", f"Unexpected stdout: {stdout}"
-    
-    # 2. Test Claude normalization
-    print("Testing Claude normalization...")
-    stdout, stderr, code = run_hook(
-        {"event": "PreToolUse", "session_id": "claude_test", "model": "claude-3"},
-        home_dir,
-        {"CUBICLE_LLM_FAMILY": "claude"}
-    )
-    assert code == 0, f"Claude hook failed: {stderr}"
-    
-    # 3. Test Unknown fallback
-    print("Testing Unknown fallback...")
-    stdout, stderr, code = run_hook(
-        {"event": "SomeRandomEvent", "session_id": "unknown_test"},
-        home_dir
-    )
-    assert code == 0, f"Unknown hook failed: {stderr}"
 
-    # 4. Test Codex normalization via Cubicle env var
-    print("Testing Codex normalization from env...")
-    stdout, stderr, code = run_hook(
-        {"hook_event_name": "PostToolUse", "session_id": "codex_env_test", "model": "gpt-5.4", "cwd": "/tmp"},
-        home_dir,
-        {"CUBICLE_LLM_FAMILY": "codex"}
-    )
-    assert code == 0, f"Codex env hook failed: {stderr}"
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT event_type, model FROM telemetry WHERE session_id='gemini_test' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    assert row == ("pre_tool_use", "gemini-pro"), f"Gemini DB mismatch: {row}"
+    print("  ✅ Gemini hook passed")
 
-    # 5. Old heuristic-only signals should no longer classify the agent family
-    print("Testing that heuristic-only payloads remain unknown...")
+
+def test_codex_hook():
+    print("Testing Codex hook...")
+    home_dir = Path(__file__).resolve().parents[1] / "tmp" / "test_codex_home"
+    write_config(home_dir)
+    db_path = db_path_for_home(home_dir)
+    init_test_db(db_path, ["codex_test"])
+
     stdout, stderr, code = run_hook(
+        CODEX_HOOK_PATH,
+        {"hook_event_name": "PostToolUse", "session_id": "codex_test", "model": "gpt-5.4", "cwd": "/tmp"},
+        home_dir,
+    )
+    assert code == 0, f"Codex hook failed: {stderr}"
+
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT event_type, model FROM telemetry WHERE session_id='codex_test' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    assert row == ("post_tool_use", "gpt-5.4"), f"Codex DB mismatch: {row}"
+    print("  ✅ Codex hook passed")
+
+
+def test_claude_hook_session_start_model():
+    print("Testing Claude hook — model present on session_start...")
+    home_dir = Path(__file__).resolve().parents[1] / "tmp" / "test_claude_home"
+    write_config(home_dir)
+    db_path = db_path_for_home(home_dir)
+    init_test_db(db_path, ["claude_session_test"])
+
+    # session_start carries the model
+    stdout, stderr, code = run_hook(
+        CLAUDE_HOOK_PATH,
+        {"hook_event_name": "SessionStart", "session_id": "claude_session_test", "model": "claude-sonnet-4-6"},
+        home_dir,
+    )
+    assert code == 0, f"Claude session_start hook failed: {stderr}"
+
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT event_type, model FROM telemetry WHERE session_id='claude_session_test' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    assert row == ("session_start", "claude-sonnet-4-6"), f"Claude session_start DB mismatch: {row}"
+    print("  ✅ Claude session_start model captured")
+
+
+def test_claude_hook_model_resolution_from_db():
+    print("Testing Claude hook — model resolved from session_start record for tool events...")
+    home_dir = Path(__file__).resolve().parents[1] / "tmp" / "test_claude_home"
+    write_config(home_dir)
+    db_path = db_path_for_home(home_dir)
+    init_test_db(db_path, ["claude_resolution_test"])
+
+    # First: session_start populates the model in DB
+    run_hook(
+        CLAUDE_HOOK_PATH,
+        {"hook_event_name": "SessionStart", "session_id": "claude_resolution_test", "model": "claude-sonnet-4-6"},
+        home_dir,
+    )
+
+    # Then: PreToolUse has no model field — should be resolved via DB lookup
+    stdout, stderr, code = run_hook(
+        CLAUDE_HOOK_PATH,
         {
-            "hook_event_name": "UserPromptSubmit",
-            "session_id": "heuristic_only_test",
-            "model": "gpt-5.4",
-            "cwd": "/tmp",
-            "transcript_path": "/Users/test/.codex/sessions/2026/05/03/session.jsonl"
+            "hook_event_name": "PreToolUse",
+            "session_id": "claude_resolution_test",
+            "tool_name": "Read",
+            "tool_input": {"file_path": "/tmp/foo.py"},
+            "tool_use_id": "toolu_abc123",
         },
         home_dir,
-        {"CODEX_THREAD_ID": "thread_123"}
     )
-    assert code == 0, f"Heuristic-only hook failed: {stderr}"
-    
-    # 6. Verify DB entries
-    print("Verifying database entries...")
+    assert code == 0, f"Claude PreToolUse hook failed: {stderr}"
+
     with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        
-        # Check Gemini
-        cursor.execute("SELECT llm_family, event_type FROM telemetry WHERE session_id='gemini_test' ORDER BY id DESC LIMIT 1")
-        row = cursor.fetchone()
-        assert row == ("gemini", "pre_tool_use"), f"Gemini DB mismatch: {row}"
-        
-        # Check Claude
-        cursor.execute("SELECT llm_family, event_type FROM telemetry WHERE session_id='claude_test' ORDER BY id DESC LIMIT 1")
-        row = cursor.fetchone()
-        assert row == ("claude", "pre_tool_use"), f"Claude DB mismatch: {row}"
-        
-        # Check Unknown
-        cursor.execute("SELECT llm_family, event_type FROM telemetry WHERE session_id='unknown_test' ORDER BY id DESC LIMIT 1")
-        row = cursor.fetchone()
-        assert row == ("unknown", "somerandomevent"), f"Unknown DB mismatch: {row}"
+        row = conn.execute(
+            "SELECT event_type, model FROM telemetry WHERE session_id='claude_resolution_test' AND event_type='pre_tool_use' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    assert row is not None, "No pre_tool_use record found"
+    assert row[1] == "claude-sonnet-4-6", f"Model not resolved from session: {row}"
+    print("  ✅ Claude model correctly resolved from session_start record")
 
-        # Check Codex from env
-        cursor.execute("SELECT llm_family, event_type FROM telemetry WHERE session_id='codex_env_test' ORDER BY id DESC LIMIT 1")
-        row = cursor.fetchone()
-        assert row == ("codex", "post_tool_use"), f"Codex env DB mismatch: {row}"
 
-        # Check heuristic-only fallback
-        cursor.execute("SELECT llm_family, event_type FROM telemetry WHERE session_id='heuristic_only_test' ORDER BY id DESC LIMIT 1")
-        row = cursor.fetchone()
-        assert row == ("unknown", "userpromptsubmit"), f"Heuristic-only DB mismatch: {row}"
+def test_minimal():
+    """Run all hook tests."""
+    print("Starting per-agent hook verification...")
+    test_gemini_hook()
+    test_codex_hook()
+    test_claude_hook_session_start_model()
+    test_claude_hook_model_resolution_from_db()
+    print("✅ All hook tests passed!")
 
-    print("✅ Minimal verification passed!")
 
 if __name__ == "__main__":
     test_minimal()
