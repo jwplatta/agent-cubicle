@@ -382,31 +382,41 @@ def remove_codex_toml(config_path, hook_script):
             f.write(content)
         print(f"Unregistered hooks from {config_path}")
 
+AGENT_HOOKS = {
+    "claude": "claude_hook.py",
+    "codex": "codex_hook.py",
+    "gemini": "gemini_hook.py",
+    "copilot": "claude_hook.py",  # copilot uses same model-resolution pattern as claude
+}
+
+
 def _ensure_resources(force=False):
     # 1. Ensure centralized directories exist
     HOOKS_INSTALL_DIR.mkdir(parents=True, exist_ok=True)
     data_dir = CUBICLE_HOME / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
-    
-    central_hook = HOOKS_INSTALL_DIR / "cubicle_hook.py"
+
     central_db_logic = HOOKS_INSTALL_DIR / "db.py"
     actual_db_file = data_dir / "telemetry.db"
-    
+
     # 2. Handle code/db refresh if forced
     if force:
         if actual_db_file.exists():
             actual_db_file.unlink()
             print(f"Deleted existing database at {actual_db_file}")
-        
-        ensure_copy(PACKAGE_ROOT / "agent_hook.py", central_hook)
+
+        for hook_file in set(AGENT_HOOKS.values()):
+            ensure_copy(PACKAGE_ROOT / hook_file, HOOKS_INSTALL_DIR / hook_file)
         ensure_copy(PACKAGE_ROOT / "db.py", central_db_logic)
         print(f"Forced refresh of hook code and DB logic in {HOOKS_INSTALL_DIR}")
     else:
         # Standard non-destructive installation (only if missing)
-        if not central_hook.exists():
-            ensure_copy(PACKAGE_ROOT / "agent_hook.py", central_hook)
-            print(f"Installed hook code to {central_hook}")
-        
+        for hook_file in set(AGENT_HOOKS.values()):
+            dest = HOOKS_INSTALL_DIR / hook_file
+            if not dest.exists():
+                ensure_copy(PACKAGE_ROOT / hook_file, dest)
+                print(f"Installed hook code to {dest}")
+
         if not central_db_logic.exists():
             ensure_copy(PACKAGE_ROOT / "db.py", central_db_logic)
             print(f"Installed DB logic to {central_db_logic}")
@@ -414,39 +424,39 @@ def _ensure_resources(force=False):
 def init_hooks(agent=None, force=False):
     # Ensure centralized hub is ready
     _ensure_resources(force=force)
-    
+
     if agent:
-        central_hook = HOOKS_INSTALL_DIR / "cubicle_hook.py"
+        hook_script = HOOKS_INSTALL_DIR / AGENT_HOOKS[agent]
         home_dir = get_agent_home(agent)
         cfg = load_config()
         events = list(cfg["agents"][agent]["event_mapping"].keys())
 
         if agent == "gemini":
-            update_json_settings(agent, home_dir / "settings.json", central_hook, events)
+            update_json_settings(agent, home_dir / "settings.json", hook_script, events)
         elif agent == "claude":
-            update_json_settings(agent, home_dir / "settings.json", central_hook, events)
+            update_json_settings(agent, home_dir / "settings.json", hook_script, events)
         elif agent == "codex":
-            update_codex_toml(home_dir / "config.toml", central_hook, events)
+            update_codex_toml(home_dir / "config.toml", hook_script, events)
         elif agent == "copilot":
-            update_json_settings(agent, home_dir / "settings.json", central_hook, events)
-        
-        print(f"Hooks registered for {agent} pointing to {central_hook}")
+            update_json_settings(agent, home_dir / "settings.json", hook_script, events)
+
+        print(f"Hooks registered for {agent} pointing to {hook_script}")
     elif not force:
         print("No agent specified. Use --agent <name> to register hooks, or --force to refresh resources.")
 
 def del_hooks(agent):
     home_dir = get_agent_home(agent)
-    central_hook = HOOKS_INSTALL_DIR / "cubicle_hook.py"
-    
+    hook_script = HOOKS_INSTALL_DIR / AGENT_HOOKS[agent]
+
     # Unregister from settings
     if agent == "gemini":
-        remove_json_settings(home_dir / "settings.json", central_hook)
+        remove_json_settings(home_dir / "settings.json", hook_script)
     elif agent == "claude":
-        remove_json_settings(home_dir / "settings.json", central_hook)
+        remove_json_settings(home_dir / "settings.json", hook_script)
     elif agent == "codex":
-        remove_codex_toml(home_dir / "config.toml", central_hook)
+        remove_codex_toml(home_dir / "config.toml", hook_script)
     elif agent == "copilot":
-        remove_json_settings(home_dir / "settings.json", central_hook)
+        remove_json_settings(home_dir / "settings.json", hook_script)
 
 def main(argv=None):
     if argv is None:
