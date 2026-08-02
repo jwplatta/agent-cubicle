@@ -3,6 +3,8 @@ import json
 import os
 import re
 import shutil
+import signal
+import subprocess
 import sys
 from pathlib import Path
 
@@ -32,6 +34,8 @@ LLM_WRAPPERS = {
 }
 DEFAULT_MLFLOW_GATEWAY_URL = "http://127.0.0.1:5000"
 ENV_VAR_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+DASHBOARD_PID_FILE = CUBICLE_HOME / "data" / "dashboard.pid"
+DEFAULT_DASHBOARD_PORT = 8501
 
 def die(message):
     print(f"Error: {message}", file=sys.stderr)
@@ -458,6 +462,48 @@ def del_hooks(agent):
     elif agent == "copilot":
         remove_json_settings(home_dir / "settings.json", hook_script)
 
+def start_dashboard(port=DEFAULT_DASHBOARD_PORT):
+    CUBICLE_HOME.mkdir(parents=True, exist_ok=True)
+    (CUBICLE_HOME / "data").mkdir(exist_ok=True)
+
+    if DASHBOARD_PID_FILE.exists():
+        pid = int(DASHBOARD_PID_FILE.read_text().strip())
+        try:
+            os.kill(pid, 0)
+            print(f"Dashboard already running (PID {pid}) at http://localhost:{port}")
+            return
+        except OSError:
+            DASHBOARD_PID_FILE.unlink()
+
+    dashboard_script = PACKAGE_ROOT / "dashboard.py"
+    log_path = CUBICLE_HOME / "data" / "dashboard.log"
+
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "streamlit", "run", str(dashboard_script),
+         "--server.port", str(port), "--server.headless", "true"],
+        stdout=open(log_path, "w"),
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+    DASHBOARD_PID_FILE.write_text(str(proc.pid))
+    print(f"Dashboard started (PID {proc.pid}) at http://localhost:{port}")
+    print(f"Logs: {log_path}")
+
+
+def stop_dashboard():
+    if not DASHBOARD_PID_FILE.exists():
+        print("No dashboard running.")
+        return
+    pid = int(DASHBOARD_PID_FILE.read_text().strip())
+    try:
+        os.kill(pid, signal.SIGTERM)
+        DASHBOARD_PID_FILE.unlink()
+        print(f"Dashboard stopped (PID {pid})")
+    except OSError:
+        DASHBOARD_PID_FILE.unlink()
+        print("Dashboard was not running (stale PID removed).")
+
+
 def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
@@ -555,6 +601,25 @@ Examples:
         description="Prints env vars stored in ~/.cubicle/.env."
     )
 
+    # Dashboard commands
+    dashboard_parser = subparsers.add_parser(
+        "dashboard",
+        help="Start the Cubicle telemetry dashboard in the background",
+        description="Launches the Streamlit dashboard and runs it as a background process."
+    )
+    dashboard_parser.add_argument(
+        "--port",
+        type=int,
+        default=DEFAULT_DASHBOARD_PORT,
+        help=f"Port to run the dashboard on (default: {DEFAULT_DASHBOARD_PORT})"
+    )
+
+    subparsers.add_parser(
+        "dashboard-stop",
+        help="Stop the background dashboard process",
+        description="Sends SIGTERM to the dashboard process and removes the PID file."
+    )
+
     # Help command
     subparsers.add_parser("help", help="Show this help message")
 
@@ -580,6 +645,10 @@ Examples:
         init_hooks(agent=args.agent, force=args.force)
     elif args.command == "del-hooks":
         del_hooks(args.agent)
+    elif args.command == "dashboard":
+        start_dashboard(port=args.port)
+    elif args.command == "dashboard-stop":
+        stop_dashboard()
     elif args.command == "help":
         parser.print_help()
     else:
