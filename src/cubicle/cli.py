@@ -394,36 +394,16 @@ AGENT_HOOKS = {
 }
 
 
-def _ensure_resources(force=False):
-    # 1. Ensure centralized directories exist
+def _ensure_resources():
     HOOKS_INSTALL_DIR.mkdir(parents=True, exist_ok=True)
-    data_dir = CUBICLE_HOME / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
+    (CUBICLE_HOME / "data").mkdir(parents=True, exist_ok=True)
 
-    central_db_logic = HOOKS_INSTALL_DIR / "db.py"
-    actual_db_file = data_dir / "telemetry.db"
+    for hook_file in set(AGENT_HOOKS.values()):
+        ensure_copy(PACKAGE_ROOT / hook_file, HOOKS_INSTALL_DIR / hook_file)
+    ensure_copy(PACKAGE_ROOT / "db.py", HOOKS_INSTALL_DIR / "db.py")
 
-    # 2. Handle code refresh if forced (never deletes DB)
-    if force:
-        for hook_file in set(AGENT_HOOKS.values()):
-            ensure_copy(PACKAGE_ROOT / hook_file, HOOKS_INSTALL_DIR / hook_file)
-        ensure_copy(PACKAGE_ROOT / "db.py", central_db_logic)
-        print(f"Forced refresh of hook code and DB logic in {HOOKS_INSTALL_DIR}")
-    else:
-        # Standard non-destructive installation (only if missing)
-        for hook_file in set(AGENT_HOOKS.values()):
-            dest = HOOKS_INSTALL_DIR / hook_file
-            if not dest.exists():
-                ensure_copy(PACKAGE_ROOT / hook_file, dest)
-                print(f"Installed hook code to {dest}")
-
-        if not central_db_logic.exists():
-            ensure_copy(PACKAGE_ROOT / "db.py", central_db_logic)
-            print(f"Installed DB logic to {central_db_logic}")
-
-def init_hooks(agent=None, force=False):
-    # Ensure centralized hub is ready
-    _ensure_resources(force=force)
+def init_hooks(agent=None):
+    _ensure_resources()
 
     if agent:
         hook_script = HOOKS_INSTALL_DIR / AGENT_HOOKS[agent]
@@ -441,8 +421,8 @@ def init_hooks(agent=None, force=False):
             update_json_settings(agent, home_dir / "settings.json", hook_script, events)
 
         print(f"Hooks registered for {agent} pointing to {hook_script}")
-    elif not force:
-        print("No agent specified. Use --agent <name> to register hooks, or --force to refresh resources.")
+    else:
+        print("No agent specified. Use --agent <name> to register hooks.")
 
 def del_hooks(agent):
     home_dir = get_agent_home(agent)
@@ -514,14 +494,8 @@ def main(argv=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Initialize the central hook hub (if not already present)
-  cubicle init-hooks
-
   # Register hooks for a specific agent
   cubicle init-hooks --agent gemini
-
-  # Force a factory reset (overwrites code and WIPES the telemetry database)
-  cubicle init-hooks --force
 
   # Remove hooks from an agent
   cubicle del-hooks --agent claude
@@ -546,14 +520,9 @@ Examples:
         description="Ensures the ~/.cubicle hub is ready and registers absolute hook paths in agent settings."
     )
     init_parser.add_argument(
-        "--agent", 
+        "--agent",
         choices=["claude", "gemini", "codex", "copilot"],
         help="The AI agent family to register (claude, gemini, codex, or copilot)"
-    )
-    init_parser.add_argument(
-        "--force", 
-        action="store_true", 
-        help="Overwrite hook scripts with fresh copies from the package (does not touch the database)"
     )
     
     # Del hooks command
@@ -638,7 +607,7 @@ Examples:
     elif args.command == "list-env":
         list_env_vars()
     elif args.command == "init-hooks":
-        init_hooks(agent=args.agent, force=args.force)
+        init_hooks(agent=args.agent)
     elif args.command == "del-hooks":
         del_hooks(args.agent)
     elif args.command == "dashboard":
