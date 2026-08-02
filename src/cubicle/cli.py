@@ -112,6 +112,62 @@ def ensure_copy(source, target):
     if source.suffix == ".py" or source.suffix == ".sh":
         target.chmod(target.stat().st_mode | 0o111)
 
+AGY_HOOKS_JSON = Path.home() / ".gemini" / "config" / "hooks.json"
+AGY_HOOK_NAME = "cubicle-telemetry"
+
+
+def write_agy_hooks_json(hook_script, events):
+    hooks_path = AGY_HOOKS_JSON
+    hooks_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if hooks_path.exists():
+        with open(hooks_path) as f:
+            try:
+                data = json.load(f)
+            except json.JSONDecodeError:
+                data = {}
+    else:
+        data = {}
+
+    entry = {}
+    for event in events:
+        entry[event] = [
+            {
+                "matcher": "*",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": f"python3 {hook_script}",
+                    }
+                ],
+            }
+        ]
+
+    data[AGY_HOOK_NAME] = entry
+
+    with open(hooks_path, "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"Wrote agy hooks.json to {hooks_path}")
+
+
+def remove_agy_hooks_json():
+    hooks_path = AGY_HOOKS_JSON
+    if not hooks_path.exists():
+        return
+
+    with open(hooks_path) as f:
+        try:
+            data = json.load(f)
+        except json.JSONDecodeError:
+            return
+
+    if AGY_HOOK_NAME in data:
+        del data[AGY_HOOK_NAME]
+        with open(hooks_path, "w") as f:
+            json.dump(data, f, indent=2)
+        print(f"Removed {AGY_HOOK_NAME} from {hooks_path}")
+
+
 def get_agent_home(agent):
     homes = {
         "claude": Path.home() / ".claude",
@@ -371,7 +427,7 @@ def init_hooks(agent=None):
         events = list(cfg["agents"][agent]["event_mapping"].keys())
 
         if agent == "agy":
-            update_json_settings(agent, home_dir / "settings.json", hook_script, events)
+            write_agy_hooks_json(hook_script, events)
         elif agent == "claude":
             update_json_settings(agent, home_dir / "settings.json", hook_script, events)
         elif agent == "codex":
@@ -389,7 +445,7 @@ def del_hooks(agent):
 
     # Unregister from settings
     if agent == "agy":
-        remove_json_settings(home_dir / "settings.json", hook_script)
+        remove_agy_hooks_json()
     elif agent == "claude":
         remove_json_settings(home_dir / "settings.json", hook_script)
     elif agent == "codex":
