@@ -3,6 +3,8 @@ import json
 import os
 import re
 import shutil
+import signal
+import subprocess
 import sys
 from pathlib import Path
 
@@ -32,6 +34,8 @@ LLM_WRAPPERS = {
 }
 DEFAULT_MLFLOW_GATEWAY_URL = "http://127.0.0.1:5000"
 ENV_VAR_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+DASHBOARD_PID_FILE = CUBICLE_HOME / "data" / "dashboard.pid"
+DEFAULT_DASHBOARD_PORT = 8501
 
 def die(message):
     print(f"Error: {message}", file=sys.stderr)
@@ -176,15 +180,6 @@ def load_config():
     validate_config(cfg)
     return cfg
 
-def init_config():
-    ensure_cubicle_home()
-    (CUBICLE_HOME / "data").mkdir(exist_ok=True)
-    if CUBICLE_CONFIG.exists():
-        print(f"Config already exists at {CUBICLE_CONFIG}")
-        return
-    shutil.copy2(DEFAULT_CONFIG, CUBICLE_CONFIG)
-    print(f"Created config at {CUBICLE_CONFIG}")
-
 def update_json_settings(agent, settings_path, hook_script, events):
     if not settings_path.exists():
         settings = {}
@@ -228,8 +223,12 @@ def update_json_settings(agent, settings_path, hook_script, events):
                 if "hooks" not in entry:
                     entry["hooks"] = []
                 
-                # Remove any existing cubicle-telemetry hooks to ensure only one remains with the new path
-                entry["hooks"] = [h for h in entry["hooks"] if h.get("name") != "cubicle-telemetry"]
+                # Remove any existing cubicle-telemetry hooks (by name or by path) to avoid duplicates
+                entry["hooks"] = [
+                    h for h in entry["hooks"]
+                    if h.get("name") != "cubicle-telemetry"
+                    and ".cubicle/hooks/" not in h.get("command", "")
+                ]
                 
                 entry["hooks"].append({
                     "name": "cubicle-telemetry",
@@ -390,40 +389,18 @@ AGENT_HOOKS = {
 }
 
 
-def _ensure_resources(force=False):
-    # 1. Ensure centralized directories exist
+def _ensure_resources():
     HOOKS_INSTALL_DIR.mkdir(parents=True, exist_ok=True)
-    data_dir = CUBICLE_HOME / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
+    (CUBICLE_HOME / "data").mkdir(parents=True, exist_ok=True)
 
-    central_db_logic = HOOKS_INSTALL_DIR / "db.py"
-    actual_db_file = data_dir / "telemetry.db"
+    for hook_file in set(AGENT_HOOKS.values()):
+        ensure_copy(PACKAGE_ROOT / hook_file, HOOKS_INSTALL_DIR / hook_file)
+    ensure_copy(PACKAGE_ROOT / "db.py", HOOKS_INSTALL_DIR / "db.py")
+    shutil.copy2(DEFAULT_CONFIG, CUBICLE_CONFIG)
+    print(f"Synced event config to {CUBICLE_CONFIG}")
 
-    # 2. Handle code/db refresh if forced
-    if force:
-        if actual_db_file.exists():
-            actual_db_file.unlink()
-            print(f"Deleted existing database at {actual_db_file}")
-
-        for hook_file in set(AGENT_HOOKS.values()):
-            ensure_copy(PACKAGE_ROOT / hook_file, HOOKS_INSTALL_DIR / hook_file)
-        ensure_copy(PACKAGE_ROOT / "db.py", central_db_logic)
-        print(f"Forced refresh of hook code and DB logic in {HOOKS_INSTALL_DIR}")
-    else:
-        # Standard non-destructive installation (only if missing)
-        for hook_file in set(AGENT_HOOKS.values()):
-            dest = HOOKS_INSTALL_DIR / hook_file
-            if not dest.exists():
-                ensure_copy(PACKAGE_ROOT / hook_file, dest)
-                print(f"Installed hook code to {dest}")
-
-        if not central_db_logic.exists():
-            ensure_copy(PACKAGE_ROOT / "db.py", central_db_logic)
-            print(f"Installed DB logic to {central_db_logic}")
-
-def init_hooks(agent=None, force=False):
-    # Ensure centralized hub is ready
-    _ensure_resources(force=force)
+def init_hooks(agent=None):
+    _ensure_resources()
 
     if agent:
         hook_script = HOOKS_INSTALL_DIR / AGENT_HOOKS[agent]
@@ -441,8 +418,8 @@ def init_hooks(agent=None, force=False):
             update_json_settings(agent, home_dir / "settings.json", hook_script, events)
 
         print(f"Hooks registered for {agent} pointing to {hook_script}")
-    elif not force:
-        print("No agent specified. Use --agent <name> to register hooks, or --force to refresh resources.")
+    else:
+        print("No agent specified. Use --agent <name> to register hooks.")
 
 def del_hooks(agent):
     home_dir = get_agent_home(agent)
@@ -458,6 +435,48 @@ def del_hooks(agent):
     elif agent == "copilot":
         remove_json_settings(home_dir / "settings.json", hook_script)
 
+def start_dashboard(port=DEFAULT_DASHBOARD_PORT):
+    CUBICLE_HOME.mkdir(parents=True, exist_ok=True)
+    (CUBICLE_HOME / "data").mkdir(exist_ok=True)
+
+    if DASHBOARD_PID_FILE.exists():
+        pid = int(DASHBOARD_PID_FILE.read_text().strip())
+        try:
+            os.kill(pid, 0)
+            print(f"Dashboard already running (PID {pid}) at http://localhost:{port}")
+            return
+        except OSError:
+            DASHBOARD_PID_FILE.unlink()
+
+    dashboard_script = PACKAGE_ROOT / "dashboard.py"
+    log_path = CUBICLE_HOME / "data" / "dashboard.log"
+
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "streamlit", "run", str(dashboard_script),
+         "--server.port", str(port), "--server.headless", "true"],
+        stdout=open(log_path, "w"),
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+    DASHBOARD_PID_FILE.write_text(str(proc.pid))
+    print(f"Dashboard started (PID {proc.pid}) at http://localhost:{port}")
+    print(f"Logs: {log_path}")
+
+
+def stop_dashboard():
+    if not DASHBOARD_PID_FILE.exists():
+        print("No dashboard running.")
+        return
+    pid = int(DASHBOARD_PID_FILE.read_text().strip())
+    try:
+        os.kill(pid, signal.SIGTERM)
+        DASHBOARD_PID_FILE.unlink()
+        print(f"Dashboard stopped (PID {pid})")
+    except OSError:
+        DASHBOARD_PID_FILE.unlink()
+        print("Dashboard was not running (stale PID removed).")
+
+
 def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
@@ -472,14 +491,8 @@ def main(argv=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Initialize the central hook hub (if not already present)
-  cubicle init-hooks
-
   # Register hooks for a specific agent
   cubicle init-hooks --agent gemini
-
-  # Force a factory reset (overwrites code and WIPES the telemetry database)
-  cubicle init-hooks --force
 
   # Remove hooks from an agent
   cubicle del-hooks --agent claude
@@ -504,14 +517,9 @@ Examples:
         description="Ensures the ~/.cubicle hub is ready and registers absolute hook paths in agent settings."
     )
     init_parser.add_argument(
-        "--agent", 
+        "--agent",
         choices=["claude", "gemini", "codex", "copilot"],
         help="The AI agent family to register (claude, gemini, codex, or copilot)"
-    )
-    init_parser.add_argument(
-        "--force", 
-        action="store_true", 
-        help="Overwrite stable hook scripts with fresh copies from the package and DELETE the existing database"
     )
     
     # Del hooks command
@@ -527,13 +535,6 @@ Examples:
         help="The AI agent family to unregister"
     )
     
-    # Init command
-    subparsers.add_parser(
-        "init",
-        help="Create ~/.cubicle/config.yaml with default event mappings",
-        description="Creates ~/.cubicle/config.yaml if it doesn't exist, with default per-agent event mappings."
-    )
-
     set_env_parser = subparsers.add_parser(
         "set-env",
         help="Set a shared env var for Cubicle-launched agents",
@@ -555,6 +556,25 @@ Examples:
         description="Prints env vars stored in ~/.cubicle/.env."
     )
 
+    # Dashboard commands
+    dashboard_parser = subparsers.add_parser(
+        "dashboard",
+        help="Start the Cubicle telemetry dashboard in the background",
+        description="Launches the Streamlit dashboard and runs it as a background process."
+    )
+    dashboard_parser.add_argument(
+        "--port",
+        type=int,
+        default=DEFAULT_DASHBOARD_PORT,
+        help=f"Port to run the dashboard on (default: {DEFAULT_DASHBOARD_PORT})"
+    )
+
+    subparsers.add_parser(
+        "dashboard-stop",
+        help="Stop the background dashboard process",
+        description="Sends SIGTERM to the dashboard process and removes the PID file."
+    )
+
     # Help command
     subparsers.add_parser("help", help="Show this help message")
 
@@ -568,18 +588,20 @@ Examples:
 
     args = parser.parse_args(argv)
 
-    if args.command == "init":
-        init_config()
-    elif args.command == "set-env":
+    if args.command == "set-env":
         set_env_var(args.name, args.value)
     elif args.command == "unset-env":
         unset_env_var(args.name)
     elif args.command == "list-env":
         list_env_vars()
     elif args.command == "init-hooks":
-        init_hooks(agent=args.agent, force=args.force)
+        init_hooks(agent=args.agent)
     elif args.command == "del-hooks":
         del_hooks(args.agent)
+    elif args.command == "dashboard":
+        start_dashboard(port=args.port)
+    elif args.command == "dashboard-stop":
+        stop_dashboard()
     elif args.command == "help":
         parser.print_help()
     else:
