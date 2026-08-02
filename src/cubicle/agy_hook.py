@@ -13,7 +13,7 @@ def _load_event_mapping():
     config_path = Path.home() / ".cubicle" / "config.yaml"
     with open(config_path) as f:
         cfg = yaml.safe_load(f)
-    return cfg["agents"]["gemini"]["event_mapping"]
+    return cfg["agents"]["agy"]["event_mapping"]
 
 
 def main():

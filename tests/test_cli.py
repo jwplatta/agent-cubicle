@@ -29,7 +29,7 @@ def test_main_strips_observe_flag_from_wrapper_args(monkeypatch):
     assert calls == [("codex", ["exec", "status"], True)]
 
 
-@pytest.mark.parametrize("agent", ["claude", "gemini", "codex"])
+@pytest.mark.parametrize("agent", ["claude", "agy", "codex"])
 def test_launch_agent_sets_family_and_forwards_args(monkeypatch, agent, tmp_path):
     captured = {}
 
@@ -81,7 +81,7 @@ def test_launch_agent_loads_shared_env_and_overrides_process_env(monkeypatch, tm
     ("agent", "expected_env"),
     [
         ("claude", {"ANTHROPIC_BASE_URL": "http://127.0.0.1:5000/gateway/proxy/claude-code"}),
-        ("gemini", {"GOOGLE_GEMINI_BASE_URL": "http://127.0.0.1:5000/gateway/proxy/gemini-cli"}),
+        ("agy", {"GOOGLE_GEMINI_BASE_URL": "http://127.0.0.1:5000/gateway/proxy/agy"}),
     ],
 )
 def test_launch_agent_observe_sets_mlflow_base_url(monkeypatch, agent, expected_env, tmp_path):

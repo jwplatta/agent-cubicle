@@ -1,6 +1,6 @@
 # Cubicle
 
-Cubicle is a local harness and management tool for AI coding agents. It provides a central place to manage shared logic, configuration, and tools for different agent families (like Claude, Gemini, and Codex), ensuring a consistent and observable developer experience.
+Cubicle is a local harness and management tool for AI coding agents. It provides a central place to manage shared logic, configuration, and tools for different agent families (like Claude, Antigravity, and Codex), ensuring a consistent and observable developer experience.
 
 The goal of Cubicle is to eliminate duplication across different agent setups and provide a single interface for extending agent capabilities.
 
@@ -31,8 +31,8 @@ pip install -e .
 Point your AI agents to the Cubicle telemetry harness:
 
 ```bash
-# Setup for Gemini
-cubicle init-hooks --agent gemini
+# Setup for Antigravity
+cubicle init-hooks --agent agy
 
 # Setup for Claude
 cubicle init-hooks --agent claude
@@ -51,7 +51,7 @@ This command installs stable hook scripts to `~/.cubicle/hooks/` and automatical
 - `cubicle unset-env NAME`: Removes a shared env var from `~/.cubicle/.env`.
 - `cubicle list-env`: Prints the shared env vars stored in `~/.cubicle/.env`.
 - `cubicle claude [args...]`: Exec the upstream `claude` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=claude` plus any shared vars from `~/.cubicle/.env` for that process tree.
-- `cubicle gemini [args...]`: Exec the upstream `gemini` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=gemini` plus any shared vars from `~/.cubicle/.env` for that process tree.
+- `cubicle agy [args...]`: Exec the upstream `agy` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=agy` plus any shared vars from `~/.cubicle/.env` for that process tree.
 - `cubicle codex [args...]`: Exec the upstream `codex` CLI, forwarding all trailing args and setting `CUBICLE_LLM_FAMILY=codex` plus any shared vars from `~/.cubicle/.env` for that process tree.
 - Add `--observe` to a wrapper command to route that agent through the local MLflow gateway for observability.
 - `cubicle help`: Shows this help message.
@@ -65,7 +65,7 @@ Use the Cubicle wrappers when starting supported agent CLIs so the telemetry hoo
 
 ```bash
 cubicle claude --help
-cubicle gemini chat --model gemini-2.5-pro
+cubicle agy
 cubicle codex exec "summarize the repo"
 ```
 
@@ -75,7 +75,7 @@ To route model calls through a local MLflow gateway, add `--observe` to the Cubi
 
 ```bash
 cubicle claude --observe
-cubicle gemini --observe
+cubicle agy --observe
 cubicle codex --observe exec "summarize the repo"
 ```
 

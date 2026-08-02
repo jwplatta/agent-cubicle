@@ -1,8 +1,8 @@
-# Gemini Project: Cubicle
+# Antigravity CLI: Cubicle
 
 ## Project Overview
 
-"Cubicle" is a local harness and management tool for AI coding agents. It provides a central place to manage shared logic, configuration, and tools for different agent families (like Claude, Gemini, and Codex), ensuring a consistent and observable developer experience.
+"Cubicle" is a local harness and management tool for AI coding agents. It provides a central place to manage shared logic, configuration, and tools for different agent families (like Claude, Antigravity, and Codex), ensuring a consistent and observable developer experience.
 
 The goal is to minimize duplication and maximize the effectiveness of AI agents by centralizing:
 - **Shared Skills:** Reusable agent capabilities managed via `skillex`.
@@ -12,7 +12,7 @@ The goal is to minimize duplication and maximize the effectiveness of AI agents 
 
 ## Key Current Feature: Unified Hooks
 
-Cubicle currently provides a standardized way to capture telemetry data from agents like Claude, Gemini, and Codex, normalizing their native events into a consistent format and storing them in a local SQLite database at `~/.cubicle/data/telemetry.db`.
+Cubicle currently provides a standardized way to capture telemetry data from agents like Claude, Antigravity, and Codex, normalizing their native events into a consistent format and storing them in a local SQLite database at `~/.cubicle/data/telemetry.db`.
 
 ## Installation
 
@@ -21,7 +21,7 @@ Cubicle currently provides a standardized way to capture telemetry data from age
 pip install -e .
 
 # Initialize telemetry hooks for a specific agent
-cubicle init-hooks --agent gemini
+cubicle init-hooks --agent agy
 ```
 
 ## CLI Usage
@@ -33,7 +33,7 @@ cubicle init-hooks --agent gemini
 
 Stored in `~/.cubicle/data/telemetry.db`:
 - **`timestamp`**: UTC time of the event.
-- **`llm_family`**: gemini, claude, codex, etc.
+- **`llm_family`**: agy, claude, codex, etc.
 - **`event_type`**: Normalized event name (e.g., `pre_tool_use`, `session_start`).
 - **`raw_payload`**: The complete JSON object provided by the agent.
 

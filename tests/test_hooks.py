@@ -8,7 +8,7 @@ import yaml
 SRC_DIR = Path(__file__).resolve().parents[1] / "src" / "cubicle"
 CLAUDE_HOOK_PATH = SRC_DIR / "claude_hook.py"
 CODEX_HOOK_PATH = SRC_DIR / "codex_hook.py"
-GEMINI_HOOK_PATH = SRC_DIR / "gemini_hook.py"
+AGY_HOOK_PATH = SRC_DIR / "agy_hook.py"
 
 
 def write_config(home_dir):
@@ -59,27 +59,27 @@ def init_test_db(db_path, session_ids):
         conn.commit()
 
 
-def test_gemini_hook():
-    print("Testing Gemini hook...")
-    home_dir = Path(__file__).resolve().parents[1] / "tmp" / "test_gemini_home"
+def test_agy_hook():
+    print("Testing Antigravity hook...")
+    home_dir = Path(__file__).resolve().parents[1] / "tmp" / "test_agy_home"
     write_config(home_dir)
     db_path = db_path_for_home(home_dir)
-    init_test_db(db_path, ["gemini_test"])
+    init_test_db(db_path, ["agy_test"])
 
     stdout, stderr, code = run_hook(
-        GEMINI_HOOK_PATH,
-        {"hook_event_name": "BeforeTool", "session_id": "gemini_test", "model": "gemini-pro"},
+        AGY_HOOK_PATH,
+        {"hook_event_name": "BeforeTool", "session_id": "agy_test", "model": "gemini-pro"},
         home_dir,
     )
-    assert code == 0, f"Gemini hook failed: {stderr}"
+    assert code == 0, f"Antigravity hook failed: {stderr}"
     assert stdout.strip() == "{}", f"Unexpected stdout: {stdout}"
 
     with sqlite3.connect(db_path) as conn:
         row = conn.execute(
-            "SELECT event_type, model FROM telemetry WHERE session_id='gemini_test' ORDER BY id DESC LIMIT 1"
+            "SELECT event_type, model FROM telemetry WHERE session_id='agy_test' ORDER BY id DESC LIMIT 1"
         ).fetchone()
-    assert row == ("pre_tool_use", "gemini-pro"), f"Gemini DB mismatch: {row}"
-    print("  ✅ Gemini hook passed")
+    assert row == ("pre_tool_use", "gemini-pro"), f"Antigravity DB mismatch: {row}"
+    print("  ✅ Antigravity hook passed")
 
 
 def test_codex_hook():
@@ -167,7 +167,7 @@ def test_claude_hook_model_resolution_from_db():
 def test_minimal():
     """Run all hook tests."""
     print("Starting per-agent hook verification...")
-    test_gemini_hook()
+    test_agy_hook()
     test_codex_hook()
     test_claude_hook_session_start_model()
     test_claude_hook_model_resolution_from_db()

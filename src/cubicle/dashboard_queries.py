@@ -30,7 +30,7 @@ def infer_agent(model) -> str:
     if m.startswith("gpt") or "codex" in m:
         return "Codex"
     if "gemini" in m:
-        return "Gemini"
+        return "Antigravity"
     if "copilot" in m:
         return "Copilot"
     return "Unknown"

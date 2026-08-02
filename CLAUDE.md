@@ -40,7 +40,7 @@ Cubicle manages these agent-specific targets:
 
 - Claude: `configs/claude/settings.json` -> `~/.claude/settings.json`
 - Codex: `configs/codex/config.toml` -> `~/.codex/config.toml`
-- Gemini: `configs/gemini/settings.json` and `configs/gemini/trusted_hooks.json`
+- Antigravity: `configs/agy/settings.json` and `configs/agy/trusted_hooks.json`
 - Copilot: `configs/copilot/config.json`
 
 Shared directories:

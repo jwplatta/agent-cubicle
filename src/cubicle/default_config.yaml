@@ -6,12 +6,10 @@ events:
   - setup
   - pre_tool_use
   - post_tool_use
-  - post_tool_batch
   - post_tool_use_failure
   - permission_request
   - permission_denied
   - user_prompt_submit
-  - user_prompt_expansion
   - agent_start
   - agent_stop
   - turn_complete
@@ -19,7 +17,6 @@ events:
   - task_completed
   - pre_compress
   - notification
-  - message_display
   - instructions_loaded
   - config_change
   - cwd_changed
@@ -38,15 +35,12 @@ agents:
       SessionStart: session_start
       Setup: setup
       UserPromptSubmit: user_prompt_submit
-      UserPromptExpansion: user_prompt_expansion
       PreToolUse: pre_tool_use
       PostToolUse: post_tool_use
       PostToolUseFailure: post_tool_use_failure
-      PostToolBatch: post_tool_batch
       PermissionRequest: permission_request
       PermissionDenied: permission_denied
       Notification: notification
-      MessageDisplay: message_display
       SubagentStart: agent_start
       SubagentStop: agent_stop
       TaskCreated: task_created
@@ -65,7 +59,7 @@ agents:
       ElicitationResult: elicitation_result
       SessionEnd: session_end
 
-  gemini:
+  agy:
     event_mapping:
       SessionStart: session_start
       SessionEnd: session_end
