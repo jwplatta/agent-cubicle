@@ -6,27 +6,14 @@ from cubicle import cli
 def test_main_dispatches_claude_wrapper(monkeypatch):
     calls = []
 
-    def fake_launch(agent, argv, observability=False):
-        calls.append((agent, argv, observability))
+    def fake_launch(agent, argv):
+        calls.append((agent, argv))
 
     monkeypatch.setattr(cli, "launch_agent", fake_launch)
 
     cli.main(["claude", "--help"])
 
-    assert calls == [("claude", ["--help"], False)]
-
-
-def test_main_strips_observe_flag_from_wrapper_args(monkeypatch):
-    calls = []
-
-    def fake_launch(agent, argv, observability=False):
-        calls.append((agent, argv, observability))
-
-    monkeypatch.setattr(cli, "launch_agent", fake_launch)
-
-    cli.main(["codex", "--observe", "exec", "status"])
-
-    assert calls == [("codex", ["exec", "status"], True)]
+    assert calls == [("claude", ["--help"])]
 
 
 @pytest.mark.parametrize("agent", ["claude", "agy", "codex"])
@@ -76,59 +63,6 @@ def test_launch_agent_loads_shared_env_and_overrides_process_env(monkeypatch, tm
     assert captured["env"]["SHARED_TOKEN"] == "from-file"
     assert captured["env"]["UNCHANGED_VAR"] == "override"
 
-
-@pytest.mark.parametrize(
-    ("agent", "expected_env"),
-    [
-        ("claude", {"ANTHROPIC_BASE_URL": "http://127.0.0.1:5000/gateway/proxy/claude-code"}),
-        ("agy", {"GOOGLE_GEMINI_BASE_URL": "http://127.0.0.1:5000/gateway/proxy/agy"}),
-    ],
-)
-def test_launch_agent_observe_sets_mlflow_base_url(monkeypatch, agent, expected_env, tmp_path):
-    captured = {}
-
-    monkeypatch.setattr(cli, "ENV_FILE", tmp_path / ".env")
-    monkeypatch.setattr(cli.shutil, "which", lambda name: f"/usr/local/bin/{name}")
-
-    def fake_execvpe(path, argv, env):
-        captured["argv"] = argv
-        captured["env"] = env
-        raise SystemExit(0)
-
-    monkeypatch.setattr(cli.os, "execvpe", fake_execvpe)
-
-    with pytest.raises(SystemExit):
-        cli.launch_agent(agent, ["chat"], observability=True)
-
-    assert captured["argv"] == [agent, "chat"]
-    for name, value in expected_env.items():
-        assert captured["env"][name] == value
-
-
-def test_launch_agent_observe_prepends_codex_mlflow_config(monkeypatch, tmp_path):
-    captured = {}
-
-    monkeypatch.setattr(cli, "ENV_FILE", tmp_path / ".env")
-    monkeypatch.setattr(cli.shutil, "which", lambda name: f"/usr/local/bin/{name}")
-
-    def fake_execvpe(path, argv, env):
-        captured["argv"] = argv
-        captured["env"] = env
-        raise SystemExit(0)
-
-    monkeypatch.setattr(cli.os, "execvpe", fake_execvpe)
-
-    with pytest.raises(SystemExit):
-        cli.launch_agent("codex", ["exec", "status"], observability=True)
-
-    assert captured["argv"] == [
-        "codex",
-        "--config",
-        'openai_base_url="http://127.0.0.1:5000/gateway/proxy/codex/v1"',
-        "exec",
-        "status",
-    ]
-    assert captured["env"]["CUBICLE_LLM_FAMILY"] == "codex"
 
 
 def test_launch_agent_fails_when_executable_missing(monkeypatch, tmp_path, capsys):
