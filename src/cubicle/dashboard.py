@@ -9,7 +9,6 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent))
 from dashboard_queries import (
     get_daily_sessions,
-    get_error_stats,
     get_model_distribution,
     get_repo_distribution,
     get_session_events,
@@ -158,22 +157,6 @@ def render_overview():
             )
             st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown("---")
-
-    # Permission / error stats
-    st.subheader("Permission Requests by Model")
-    errors = get_error_stats()
-    if not errors.empty and errors["permission_requests"].sum() > 0:
-        fig = px.bar(
-            errors[errors["permission_requests"] > 0].sort_values("permission_requests", ascending=False),
-            x="model",
-            y="permission_requests",
-            color="agent",
-            color_discrete_map=AGENT_COLORS,
-            labels={"model": "Model", "permission_requests": "Permission Requests"},
-        )
-        fig.update_layout(margin=dict(t=10, b=10), height=300)
-        st.plotly_chart(fig, use_container_width=True)
 
 
 # ---------------------------------------------------------------------------
