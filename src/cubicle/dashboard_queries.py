@@ -237,6 +237,10 @@ def get_session_events(session_id: str) -> pd.DataFrame:
         if norm in ("notification", "permissionrequest"):
             notification_msg = payload.get("message") or payload.get("reason")
 
+        assistant_message = None
+        if norm in ("turncomplete", "stop"):
+            assistant_message = payload.get("last_assistant_message")
+
         records.append({
             "timestamp": row["timestamp"],
             "event_type": row["event_type"],
@@ -246,6 +250,7 @@ def get_session_events(session_id: str) -> pd.DataFrame:
             "tool_input": tool_input,
             "tool_response": tool_response,
             "notification_msg": notification_msg,
+            "assistant_message": assistant_message,
             "cwd": payload.get("cwd"),
         })
 

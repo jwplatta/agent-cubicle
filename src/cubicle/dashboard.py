@@ -262,6 +262,11 @@ def render_sessions():
                     st.write(ev["prompt_text"])
                     st.caption(ev["timestamp"])
 
+            elif norm in ("turncomplete", "stop") and ev["assistant_message"]:
+                with st.chat_message("assistant"):
+                    st.write(ev["assistant_message"])
+                    st.caption(ev["timestamp"])
+
             elif norm == "pretooluse" and ev["tool_name"]:
                 with st.expander(f"🔧 {ev['tool_name']}  —  {ev['timestamp']}", expanded=False):
                     if ev["tool_input"]:
