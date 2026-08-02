@@ -403,12 +403,8 @@ def _ensure_resources(force=False):
     central_db_logic = HOOKS_INSTALL_DIR / "db.py"
     actual_db_file = data_dir / "telemetry.db"
 
-    # 2. Handle code/db refresh if forced
+    # 2. Handle code refresh if forced (never deletes DB)
     if force:
-        if actual_db_file.exists():
-            actual_db_file.unlink()
-            print(f"Deleted existing database at {actual_db_file}")
-
         for hook_file in set(AGENT_HOOKS.values()):
             ensure_copy(PACKAGE_ROOT / hook_file, HOOKS_INSTALL_DIR / hook_file)
         ensure_copy(PACKAGE_ROOT / "db.py", central_db_logic)
@@ -557,7 +553,7 @@ Examples:
     init_parser.add_argument(
         "--force", 
         action="store_true", 
-        help="Overwrite stable hook scripts with fresh copies from the package and DELETE the existing database"
+        help="Overwrite hook scripts with fresh copies from the package (does not touch the database)"
     )
     
     # Del hooks command

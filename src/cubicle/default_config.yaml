@@ -7,15 +7,19 @@ events:
   - pre_tool_use
   - post_tool_use
   - post_tool_batch
+  - post_tool_use_failure
   - permission_request
   - permission_denied
   - user_prompt_submit
+  - user_prompt_expansion
   - agent_start
   - agent_stop
+  - turn_complete
   - task_created
   - task_completed
   - pre_compress
   - notification
+  - message_display
   - instructions_loaded
   - config_change
   - cwd_changed
@@ -27,7 +31,6 @@ events:
   - elicitation
   - elicitation_result
   - tool_selection
-  - user_prompt_expansion
 
 agents:
   claude:
@@ -35,17 +38,20 @@ agents:
       SessionStart: session_start
       Setup: setup
       UserPromptSubmit: user_prompt_submit
+      UserPromptExpansion: user_prompt_expansion
       PreToolUse: pre_tool_use
       PostToolUse: post_tool_use
-      PostToolUseFailure: post_tool_use
+      PostToolUseFailure: post_tool_use_failure
+      PostToolBatch: post_tool_batch
       PermissionRequest: permission_request
       PermissionDenied: permission_denied
       Notification: notification
+      MessageDisplay: message_display
       SubagentStart: agent_start
       SubagentStop: agent_stop
       TaskCreated: task_created
       TaskCompleted: task_completed
-      Stop: agent_stop
+      Stop: turn_complete
       StopFailure: agent_stop
       InstructionsLoaded: instructions_loaded
       ConfigChange: config_change
@@ -76,17 +82,22 @@ agents:
   codex:
     event_mapping:
       SessionStart: session_start
+      SessionEnd: session_end
+      UserPromptSubmit: user_prompt_submit
       PreToolUse: pre_tool_use
       PostToolUse: post_tool_use
-      UserPromptSubmit: user_prompt_submit
       PermissionRequest: permission_request
-      Stop: agent_stop
+      SubagentStart: agent_start
+      SubagentStop: agent_stop
+      Stop: turn_complete
+      PreCompact: pre_compact
+      PostCompact: post_compact
 
   copilot:
     event_mapping:
       SessionStart: session_start
       SessionEnd: session_end
-      Stop: session_end
+      Stop: turn_complete
       Setup: setup
       PreToolUse: pre_tool_use
       PostToolUse: post_tool_use
