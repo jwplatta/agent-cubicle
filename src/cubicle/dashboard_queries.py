@@ -107,21 +107,6 @@ def get_daily_sessions(days: int = 30) -> pd.DataFrame:
     with _connect() as conn:
         df = pd.read_sql_query(f"""
             SELECT
-                DATE(MIN(timestamp)) as date,
-                model,
-                COUNT(DISTINCT session_id) as sessions
-            FROM telemetry
-            WHERE MIN(timestamp) >= DATE('now', '-{days} days')
-            GROUP BY DATE(MIN(timestamp)), session_id
-        """, conn)
-
-    if df.empty:
-        return df
-
-    # Re-aggregate so we get one row per date+agent with session count
-    with _connect() as conn:
-        df = pd.read_sql_query(f"""
-            SELECT
                 DATE(first_ts) as date,
                 model,
                 COUNT(*) as sessions

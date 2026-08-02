@@ -43,8 +43,6 @@ st.sidebar.caption("Cubicle Telemetry Dashboard")
 # ---------------------------------------------------------------------------
 
 def render_overview():
-    st.title("Agent Usage Overview")
-
     stats = get_summary_stats()
 
     c1, c2, c3, c4 = st.columns(4)
