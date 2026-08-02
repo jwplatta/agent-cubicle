@@ -129,14 +129,14 @@ def write_agy_hooks_json(hook_script, events):
     else:
         data = {}
 
+    tool_events = {"PreToolUse", "PostToolUse"}
     entry = {}
     for event in events:
-        entry[event] = [
-            {
-                "type": "command",
-                "command": f"python3 {hook_script} {event}",
-            }
-        ]
+        hook = {"type": "command", "command": f"python3 {hook_script} {event}"}
+        if event in tool_events:
+            entry[event] = [{"matcher": "*", "hooks": [hook]}]
+        else:
+            entry[event] = [hook]
 
     data[AGY_HOOK_NAME] = entry
 
