@@ -451,9 +451,22 @@ def start_dashboard(port=DEFAULT_DASHBOARD_PORT):
     dashboard_script = PACKAGE_ROOT / "dashboard.py"
     log_path = CUBICLE_HOME / "data" / "dashboard.log"
 
+    uv = shutil.which("uv")
+    if not uv:
+        die("uv not found on PATH — required to launch the dashboard")
+
+    # Find the project root (directory containing pyproject.toml) from PACKAGE_ROOT
+    project_root = PACKAGE_ROOT
+    while project_root != project_root.parent:
+        if (project_root / "pyproject.toml").exists():
+            break
+        project_root = project_root.parent
+
+    cmd = [uv, "run", "--project", str(project_root), "streamlit", "run", str(dashboard_script),
+           "--server.port", str(port), "--server.headless", "true"]
+
     proc = subprocess.Popen(
-        [sys.executable, "-m", "streamlit", "run", str(dashboard_script),
-         "--server.port", str(port), "--server.headless", "true"],
+        cmd,
         stdout=open(log_path, "w"),
         stderr=subprocess.STDOUT,
         start_new_session=True,
