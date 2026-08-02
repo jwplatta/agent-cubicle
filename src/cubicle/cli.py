@@ -29,10 +29,9 @@ ENV_FILE = CUBICLE_HOME / ".env"
 DEFAULT_CONFIG = PACKAGE_ROOT / "default_config.yaml"
 LLM_WRAPPERS = {
     "claude": "claude",
-    "gemini": "gemini",
+    "agy": "agy",
     "codex": "codex",
 }
-DEFAULT_MLFLOW_GATEWAY_URL = "http://127.0.0.1:5000"
 ENV_VAR_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 DASHBOARD_PID_FILE = CUBICLE_HOME / "data" / "dashboard.pid"
 DEFAULT_DASHBOARD_PORT = 8501
@@ -90,30 +89,7 @@ def list_env_vars():
         print(f"{name}={value}")
 
 
-def mlflow_gateway_url():
-    return os.environ.get("CUBICLE_MLFLOW_GATEWAY_URL", DEFAULT_MLFLOW_GATEWAY_URL).rstrip("/")
-
-
-def apply_mlflow_observability(agent, argv, env):
-    gateway_url = mlflow_gateway_url()
-
-    if agent == "gemini":
-        env["GOOGLE_GEMINI_BASE_URL"] = f"{gateway_url}/gateway/proxy/gemini-cli"
-        return argv
-    if agent == "claude":
-        env["ANTHROPIC_BASE_URL"] = f"{gateway_url}/gateway/proxy/claude-code"
-        return argv
-    if agent == "codex":
-        return [
-            "--config",
-            f'openai_base_url="{gateway_url}/gateway/proxy/codex/v1"',
-            *argv,
-        ]
-
-    die(f"MLflow observability is not configured for '{agent}'")
-
-
-def launch_agent(agent, argv, observability=False):
+def launch_agent(agent, argv):
     executable = shutil.which(agent)
     if executable is None:
         die(f"Could not find '{agent}' on PATH")
@@ -121,22 +97,7 @@ def launch_agent(agent, argv, observability=False):
     env = os.environ.copy()
     env.update(load_shared_env())
     env["CUBICLE_LLM_FAMILY"] = agent
-    if observability:
-        argv = apply_mlflow_observability(agent, argv, env)
     os.execvpe(executable, [agent, *argv], env)
-
-
-def parse_wrapper_args(argv):
-    observability = False
-    forwarded = []
-
-    for arg in argv:
-        if arg == "--observe":
-            observability = True
-        else:
-            forwarded.append(arg)
-
-    return forwarded, observability
 
 def ensure_copy(source, target):
     source = Path(source).absolute()
@@ -155,7 +116,7 @@ def get_agent_home(agent):
     homes = {
         "claude": Path.home() / ".claude",
         "codex": Path.home() / ".codex",
-        "gemini": Path.home() / ".gemini",
+        "agy": Path.home() / ".gemini" / "antigravity-cli",
         "copilot": Path.home() / ".copilot",
     }
     if agent not in homes:
@@ -191,7 +152,7 @@ def update_json_settings(agent, settings_path, hook_script, events):
                 settings = {}
 
     # Agent-specific global enablement
-    if agent == "gemini":
+    if agent == "agy":
         if "hooksConfig" not in settings:
             settings["hooksConfig"] = {}
         settings["hooksConfig"]["enabled"] = True
@@ -255,16 +216,17 @@ def update_json_settings(agent, settings_path, hook_script, events):
 def update_codex_toml(config_path, hook_script, events):
     # Minimal TOML injection
     if not config_path.exists():
-        content = "[features]\ncodex_hooks = true\n\n"
+        content = "[features]\nhooks = true\n\n"
     else:
         with open(config_path, "r") as f:
             content = f.read()
 
-    if "codex_hooks = true" not in content:
+    content = content.replace("codex_hooks = true\n", "")
+    if "hooks = true" not in content:
         if "[features]" in content:
-            content = content.replace("[features]", "[features]\ncodex_hooks = true")
+            content = content.replace("[features]", "[features]\nhooks = true")
         else:
-            content = "[features]\ncodex_hooks = true\n\n" + content
+            content = "[features]\nhooks = true\n\n" + content
 
     # Clean up existing cubicle-telemetry blocks first to avoid duplication/stale paths
     lines = content.splitlines()
@@ -384,7 +346,7 @@ def remove_codex_toml(config_path, hook_script):
 AGENT_HOOKS = {
     "claude": "claude_hook.py",
     "codex": "codex_hook.py",
-    "gemini": "gemini_hook.py",
+    "agy": "agy_hook.py",
     "copilot": "claude_hook.py",  # copilot uses same model-resolution pattern as claude
 }
 
@@ -408,7 +370,7 @@ def init_hooks(agent=None):
         cfg = load_config()
         events = list(cfg["agents"][agent]["event_mapping"].keys())
 
-        if agent == "gemini":
+        if agent == "agy":
             update_json_settings(agent, home_dir / "settings.json", hook_script, events)
         elif agent == "claude":
             update_json_settings(agent, home_dir / "settings.json", hook_script, events)
@@ -426,7 +388,7 @@ def del_hooks(agent):
     hook_script = HOOKS_INSTALL_DIR / AGENT_HOOKS[agent]
 
     # Unregister from settings
-    if agent == "gemini":
+    if agent == "agy":
         remove_json_settings(home_dir / "settings.json", hook_script)
     elif agent == "claude":
         remove_json_settings(home_dir / "settings.json", hook_script)
@@ -451,9 +413,22 @@ def start_dashboard(port=DEFAULT_DASHBOARD_PORT):
     dashboard_script = PACKAGE_ROOT / "dashboard.py"
     log_path = CUBICLE_HOME / "data" / "dashboard.log"
 
+    uv = shutil.which("uv")
+    if not uv:
+        die("uv not found on PATH — required to launch the dashboard")
+
+    # Find the project root (directory containing pyproject.toml) from PACKAGE_ROOT
+    project_root = PACKAGE_ROOT
+    while project_root != project_root.parent:
+        if (project_root / "pyproject.toml").exists():
+            break
+        project_root = project_root.parent
+
+    cmd = [uv, "run", "--project", str(project_root), "streamlit", "run", str(dashboard_script),
+           "--server.port", str(port), "--server.headless", "true"]
+
     proc = subprocess.Popen(
-        [sys.executable, "-m", "streamlit", "run", str(dashboard_script),
-         "--server.port", str(port), "--server.headless", "true"],
+        cmd,
         stdout=open(log_path, "w"),
         stderr=subprocess.STDOUT,
         start_new_session=True,
@@ -482,8 +457,7 @@ def main(argv=None):
         argv = sys.argv[1:]
 
     if argv and argv[0] in LLM_WRAPPERS:
-        agent_argv, observability = parse_wrapper_args(argv[1:])
-        launch_agent(argv[0], agent_argv, observability=observability)
+        launch_agent(argv[0], argv[1:])
         return
 
     parser = argparse.ArgumentParser(
@@ -492,20 +466,15 @@ def main(argv=None):
         epilog="""
 Examples:
   # Register hooks for a specific agent
-  cubicle init-hooks --agent gemini
+  cubicle init-hooks --agent agy
 
   # Remove hooks from an agent
   cubicle del-hooks --agent claude
 
   # Launch an agent through Cubicle and tag the process tree for telemetry
   cubicle claude --help
-  cubicle gemini chat --model gemini-2.5-pro
+  cubicle agy
   cubicle codex exec "fix the failing test"
-
-  # Route agent model calls through a local MLflow gateway
-  cubicle claude --observe
-  cubicle gemini --observe
-  cubicle codex --observe exec "fix the failing test"
         """
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -518,8 +487,8 @@ Examples:
     )
     init_parser.add_argument(
         "--agent",
-        choices=["claude", "gemini", "codex", "copilot"],
-        help="The AI agent family to register (claude, gemini, codex, or copilot)"
+        choices=["claude", "agy", "codex", "copilot"],
+        help="The AI agent family to register (claude, agy, codex, or copilot)"
     )
     
     # Del hooks command
@@ -531,7 +500,7 @@ Examples:
     del_parser.add_argument(
         "--agent", 
         required=True, 
-        choices=["claude", "gemini", "codex", "copilot"],
+        choices=["claude", "agy", "codex", "copilot"],
         help="The AI agent family to unregister"
     )
     

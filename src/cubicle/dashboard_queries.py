@@ -21,20 +21,6 @@ def _connect():
     return conn
 
 
-def infer_agent(model) -> str:
-    if not model or not isinstance(model, str):
-        return "Unknown"
-    m = model.lower()
-    if m.startswith("claude"):
-        return "Claude"
-    if m.startswith("gpt") or "codex" in m:
-        return "Codex"
-    if "gemini" in m:
-        return "Gemini"
-    if "copilot" in m:
-        return "Copilot"
-    return "Unknown"
-
 
 def get_summary_stats() -> dict:
     with _connect() as conn:
@@ -95,7 +81,6 @@ def get_sessions() -> pd.DataFrame:
             ORDER BY start_time DESC
         """, conn)
 
-    df["agent"] = df["model"].apply(infer_agent)
     df["repo"] = df["cwd"].apply(lambda x: Path(x).name if isinstance(x, str) and x else "unknown")
     df["start_time"] = pd.to_datetime(df["start_time"])
     df["end_time"] = pd.to_datetime(df["end_time"])
@@ -104,21 +89,6 @@ def get_sessions() -> pd.DataFrame:
 
 
 def get_daily_sessions(days: int = 30) -> pd.DataFrame:
-    with _connect() as conn:
-        df = pd.read_sql_query(f"""
-            SELECT
-                DATE(MIN(timestamp)) as date,
-                model,
-                COUNT(DISTINCT session_id) as sessions
-            FROM telemetry
-            WHERE MIN(timestamp) >= DATE('now', '-{days} days')
-            GROUP BY DATE(MIN(timestamp)), session_id
-        """, conn)
-
-    if df.empty:
-        return df
-
-    # Re-aggregate so we get one row per date+agent with session count
     with _connect() as conn:
         df = pd.read_sql_query(f"""
             SELECT
@@ -135,7 +105,6 @@ def get_daily_sessions(days: int = 30) -> pd.DataFrame:
             ORDER BY date
         """, conn)
 
-    df["agent"] = df["model"].apply(infer_agent)
     df["date"] = pd.to_datetime(df["date"])
     return df
 
@@ -152,7 +121,6 @@ def get_model_distribution() -> pd.DataFrame:
             GROUP BY model
             ORDER BY sessions DESC
         """, conn)
-    df["agent"] = df["model"].apply(infer_agent)
     return df
 
 
@@ -288,5 +256,4 @@ def get_error_stats() -> pd.DataFrame:
             GROUP BY model
             ORDER BY permission_requests DESC
         """, conn)
-    df["agent"] = df["model"].apply(infer_agent)
     return df

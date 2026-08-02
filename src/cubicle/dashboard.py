@@ -9,7 +9,6 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent))
 from dashboard_queries import (
     get_daily_sessions,
-    get_error_stats,
     get_model_distribution,
     get_repo_distribution,
     get_session_events,
@@ -25,13 +24,6 @@ st.set_page_config(
     layout="wide",
 )
 
-AGENT_COLORS = {
-    "Claude": "#D97706",
-    "Codex": "#10B981",
-    "Gemini": "#3B82F6",
-    "Copilot": "#8B5CF6",
-    "Unknown": "#6B7280",
-}
 
 page = st.sidebar.radio("Navigate", ["Overview", "Sessions"], label_visibility="collapsed")
 st.sidebar.markdown("---")
@@ -43,8 +35,6 @@ st.sidebar.caption("Cubicle Telemetry Dashboard")
 # ---------------------------------------------------------------------------
 
 def render_overview():
-    st.title("Agent Usage Overview")
-
     stats = get_summary_stats()
 
     c1, c2, c3, c4 = st.columns(4)
@@ -63,9 +53,8 @@ def render_overview():
             daily,
             x="date",
             y="sessions",
-            color="agent",
-            color_discrete_map=AGENT_COLORS,
-            labels={"date": "Date", "sessions": "Sessions", "agent": "Agent"},
+            color="model",
+            labels={"date": "Date", "sessions": "Sessions", "model": "Model"},
             barmode="stack",
         )
         fig.update_layout(margin=dict(t=10, b=10), height=300)
@@ -79,24 +68,21 @@ def render_overview():
 
     # Model/agent mix
     with col_left:
-        st.subheader("Agent Mix (by sessions)")
+        st.subheader("Model Mix (by sessions)")
         model_dist = get_model_distribution()
         if not model_dist.empty:
-            agent_agg = model_dist.groupby("agent", as_index=False)["sessions"].sum()
             fig = px.pie(
-                agent_agg,
-                names="agent",
+                model_dist,
+                names="model",
                 values="sessions",
-                color="agent",
-                color_discrete_map=AGENT_COLORS,
                 hole=0.4,
             )
             fig.update_layout(margin=dict(t=10, b=10), height=300, showlegend=True)
             st.plotly_chart(fig, use_container_width=True)
 
             st.subheader("Model Breakdown")
-            display = model_dist[["model", "agent", "sessions", "tool_calls"]].rename(columns={
-                "model": "Model", "agent": "Agent", "sessions": "Sessions", "tool_calls": "Tool Calls"
+            display = model_dist[["model", "sessions", "tool_calls"]].rename(columns={
+                "model": "Model", "sessions": "Sessions", "tool_calls": "Tool Calls"
             })
             st.dataframe(display, hide_index=True, use_container_width=True)
 
@@ -160,22 +146,6 @@ def render_overview():
             )
             st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown("---")
-
-    # Permission / error stats
-    st.subheader("Permission Requests by Model")
-    errors = get_error_stats()
-    if not errors.empty and errors["permission_requests"].sum() > 0:
-        fig = px.bar(
-            errors[errors["permission_requests"] > 0].sort_values("permission_requests", ascending=False),
-            x="model",
-            y="permission_requests",
-            color="agent",
-            color_discrete_map=AGENT_COLORS,
-            labels={"model": "Model", "permission_requests": "Permission Requests"},
-        )
-        fig.update_layout(margin=dict(t=10, b=10), height=300)
-        st.plotly_chart(fig, use_container_width=True)
 
 
 # ---------------------------------------------------------------------------
@@ -193,8 +163,8 @@ def render_sessions():
     # Filter controls
     col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1:
-        agents = ["All"] + sorted(sessions["agent"].unique().tolist())
-        selected_agent = st.selectbox("Agent", agents)
+        models = ["All"] + sorted(sessions["model"].dropna().unique().tolist())
+        selected_model = st.selectbox("Model", models)
     with col_f2:
         repos = ["All"] + sorted(sessions["repo"].unique().tolist())
         selected_repo = st.selectbox("Repo", repos)
@@ -202,17 +172,16 @@ def render_sessions():
         min_tools = st.number_input("Min tool calls", min_value=0, value=0)
 
     filtered = sessions.copy()
-    if selected_agent != "All":
-        filtered = filtered[filtered["agent"] == selected_agent]
+    if selected_model != "All":
+        filtered = filtered[filtered["model"] == selected_model]
     if selected_repo != "All":
         filtered = filtered[filtered["repo"] == selected_repo]
     filtered = filtered[filtered["tool_count"] >= min_tools]
 
     # Table columns
-    display_cols = ["session_short", "agent", "model", "repo", "start_time", "duration_min", "tool_count", "prompt_count", "permission_count"]
+    display_cols = ["session_short", "model", "repo", "start_time", "duration_min", "tool_count", "prompt_count", "permission_count"]
     display = filtered[display_cols].rename(columns={
         "session_short": "Session",
-        "agent": "Agent",
         "model": "Model",
         "repo": "Repo",
         "start_time": "Started",
