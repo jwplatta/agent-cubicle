@@ -180,15 +180,6 @@ def load_config():
     validate_config(cfg)
     return cfg
 
-def init_config():
-    ensure_cubicle_home()
-    (CUBICLE_HOME / "data").mkdir(exist_ok=True)
-    if CUBICLE_CONFIG.exists():
-        print(f"Config already exists at {CUBICLE_CONFIG}")
-        return
-    shutil.copy2(DEFAULT_CONFIG, CUBICLE_CONFIG)
-    print(f"Created config at {CUBICLE_CONFIG}")
-
 def update_json_settings(agent, settings_path, hook_script, events):
     if not settings_path.exists():
         settings = {}
@@ -544,13 +535,6 @@ Examples:
         help="The AI agent family to unregister"
     )
     
-    # Init command
-    subparsers.add_parser(
-        "init",
-        help="Create ~/.cubicle/config.yaml with default event mappings",
-        description="Creates ~/.cubicle/config.yaml if it doesn't exist, with default per-agent event mappings."
-    )
-
     set_env_parser = subparsers.add_parser(
         "set-env",
         help="Set a shared env var for Cubicle-launched agents",
@@ -604,9 +588,7 @@ Examples:
 
     args = parser.parse_args(argv)
 
-    if args.command == "init":
-        init_config()
-    elif args.command == "set-env":
+    if args.command == "set-env":
         set_env_var(args.name, args.value)
     elif args.command == "unset-env":
         unset_env_var(args.name)
