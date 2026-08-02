@@ -133,13 +133,8 @@ def write_agy_hooks_json(hook_script, events):
     for event in events:
         entry[event] = [
             {
-                "matcher": "*",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": f"python3 {hook_script}",
-                    }
-                ],
+                "type": "command",
+                "command": f"python3 {hook_script} {event}",
             }
         ]
 
