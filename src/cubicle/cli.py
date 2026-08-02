@@ -232,8 +232,12 @@ def update_json_settings(agent, settings_path, hook_script, events):
                 if "hooks" not in entry:
                     entry["hooks"] = []
                 
-                # Remove any existing cubicle-telemetry hooks to ensure only one remains with the new path
-                entry["hooks"] = [h for h in entry["hooks"] if h.get("name") != "cubicle-telemetry"]
+                # Remove any existing cubicle-telemetry hooks (by name or by path) to avoid duplicates
+                entry["hooks"] = [
+                    h for h in entry["hooks"]
+                    if h.get("name") != "cubicle-telemetry"
+                    and ".cubicle/hooks/" not in h.get("command", "")
+                ]
                 
                 entry["hooks"].append({
                     "name": "cubicle-telemetry",
