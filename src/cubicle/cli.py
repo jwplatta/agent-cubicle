@@ -401,6 +401,8 @@ def _ensure_resources():
     for hook_file in set(AGENT_HOOKS.values()):
         ensure_copy(PACKAGE_ROOT / hook_file, HOOKS_INSTALL_DIR / hook_file)
     ensure_copy(PACKAGE_ROOT / "db.py", HOOKS_INSTALL_DIR / "db.py")
+    shutil.copy2(DEFAULT_CONFIG, CUBICLE_CONFIG)
+    print(f"Synced event config to {CUBICLE_CONFIG}")
 
 def init_hooks(agent=None):
     _ensure_resources()
