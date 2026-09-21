@@ -25,11 +25,11 @@ def db_path_for_home(home_dir):
     return home_dir / ".cubicle" / "data" / "telemetry.db"
 
 
-def run_hook(hook_path, payload, home_dir, env=None):
+def run_hook(hook_path, payload, home_dir, env=None, args=None):
     base_env = {k: v for k, v in subprocess.os.environ.items()}
     base_env["HOME"] = str(home_dir)
     process = subprocess.Popen(
-        ["python3", str(hook_path)],
+        ["python3", str(hook_path), *(args or [])],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -80,6 +80,28 @@ def test_agy_hook():
         ).fetchone()
     assert row == ("pre_tool_use", "gemini-pro"), f"Antigravity DB mismatch: {row}"
     print("  ✅ Antigravity hook passed")
+
+
+def test_agy_hook_contracts():
+    print("Testing Antigravity event responses...")
+    home_dir = Path(__file__).resolve().parents[1] / "tmp" / "test_agy_home"
+    write_config(home_dir)
+
+    payload = {"conversationId": "agy_contract_test", "modelName": "gemini-test"}
+    expected_responses = {
+        "PreToolUse": {"decision": "allow"},
+        "PostToolUse": {},
+        "PreInvocation": {},
+        "PostInvocation": {},
+        "Stop": {"decision": "allow"},
+    }
+    for event, expected in expected_responses.items():
+        stdout, stderr, code = run_hook(
+            AGY_HOOK_PATH, payload, home_dir, args=[event]
+        )
+        assert code == 0, f"{event} hook failed: {stderr}"
+        assert json.loads(stdout) == expected, f"Unexpected {event} output: {stdout}"
+    print("  ✅ Antigravity event responses passed")
 
 
 def test_codex_hook():
@@ -168,6 +190,7 @@ def test_minimal():
     """Run all hook tests."""
     print("Starting per-agent hook verification...")
     test_agy_hook()
+    test_agy_hook_contracts()
     test_codex_hook()
     test_claude_hook_session_start_model()
     test_claude_hook_model_resolution_from_db()
