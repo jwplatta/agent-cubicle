@@ -57,7 +57,7 @@ When migrating tools from JSON parsing to data objects:
 - Return `MCP::Tool::Response` objects with structured content
 
 ### Documentation Standards
-- Write and update TODO documents to the /doc directory
+- Write and update TODO documents to the /docs directory
 - Maintain clear progress tracking in all TODO files
 - Include usage examples in tool descriptions
 

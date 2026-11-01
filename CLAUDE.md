@@ -30,7 +30,7 @@ cubicle/
 ├── commands/     # Shared command markdown linked into agent home directories
 ├── agents/       # Agent personas and repo guidance
 ├── prompts/      # Reusable prompt templates
-├── doc/          # Internal notes and design docs
+├── docs/         # Internal notes and design docs
 └── cubicle       # Local CLI entrypoint
 ```
 
