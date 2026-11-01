@@ -11,6 +11,8 @@ from pathlib import Path
 import yaml
 from dotenv import dotenv_values
 
+from cubicle import bootstrap
+
 # Try to import tomli/tomllib for TOML handling
 try:
     import tomllib  # Python 3.11+
@@ -530,6 +532,12 @@ Examples:
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
     
+    subparsers.add_parser("init", help="Initialize the local Cubicle workspace")
+    supervisor_parser = subparsers.add_parser(
+        "supervisor", help="Start the configured interactive supervisor"
+    )
+    supervisor_parser.add_argument("--backend", choices=list(LLM_WRAPPERS))
+
     # Init hooks command
     init_parser = subparsers.add_parser(
         "init-hooks", 
@@ -608,7 +616,22 @@ Examples:
 
     args = parser.parse_args(argv)
 
-    if args.command == "set-env":
+    if args.command == "init":
+        try:
+            resource = bootstrap.initialize(CUBICLE_HOME)
+        except (OSError, ValueError) as exc:
+            die(str(exc))
+        print(f"Cubicle initialized at {CUBICLE_HOME} (supervisor: {resource})")
+    elif args.command == "supervisor":
+        try:
+            resource = bootstrap.initialize(CUBICLE_HOME)
+            backend = args.backend or bootstrap.supervisor_backend(CUBICLE_HOME)
+        except (OSError, ValueError, yaml.YAMLError) as exc:
+            die(str(exc))
+        if backend not in LLM_WRAPPERS:
+            die(f"Unsupported supervisor backend: {backend}")
+        launch_agent(backend, [f"Read and follow the Cubicle supervisor instructions at {resource}."])
+    elif args.command == "set-env":
         set_env_var(args.name, args.value)
     elif args.command == "unset-env":
         unset_env_var(args.name)

@@ -43,6 +43,16 @@ cubicle init-hooks --agent codex
 
 This command installs stable hook scripts to `~/.cubicle/hooks/` and automatically registers them in your agent's global settings (e.g., `~/.claude/settings.json`).
 
+### Supervisor (early foundation)
+
+Run `cubicle init` to create the local backlog, context, logs, runs, artifacts, and
+versioned supervisor resources under `~/.cubicle`. Existing configuration is preserved.
+`cubicle supervisor` starts Codex by default; set `supervisor.backend` in
+`~/.cubicle/config.yaml` or pass `--backend claude`, `--backend agy`, or
+`--backend codex` to select a CLI. The supervisor receives the deployed instruction
+path and shared environment. Graph management, worker dispatch, MCP, and PostgreSQL
+storage are not implemented yet.
+
 ### Commands
 
 - `cubicle init-hooks [--agent <name>] [--force]`: Initializes centralized resources and/or registers hooks for an agent. Use `--force` to refresh code and reset the database.

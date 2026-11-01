@@ -121,3 +121,39 @@ def test_set_env_rejects_invalid_name(monkeypatch, tmp_path, capsys):
 
     assert excinfo.value.code == 1
     assert "Invalid environment variable name: BAD-NAME" in capsys.readouterr().err
+
+
+def test_init_preserves_config_and_deploys_versioned_prompt(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path)
+    config = tmp_path / "config.yaml"
+    config.write_text("custom: existing\n")
+    cli.main(["init"])
+    cli.main(["init"])
+    assert config.read_text() == "custom: existing\n"
+    assert (tmp_path / "backlog").is_dir()
+    prompts = list((tmp_path / "resources" / "supervisor").glob("*/supervisor.md"))
+    assert len(prompts) == 1
+    assert (prompts[0].parent / "manifest.json").exists()
+
+
+def test_supervisor_uses_config_and_explicit_override(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path)
+    (tmp_path / "config.yaml").write_text("supervisor:\n  backend: claude\n")
+    calls = []
+    monkeypatch.setattr(cli, "launch_agent", lambda agent, argv: calls.append((agent, argv)))
+    cli.main(["supervisor"])
+    cli.main(["supervisor", "--backend", "codex"])
+    assert [call[0] for call in calls] == ["claude", "codex"]
+    assert all("supervisor.md" in call[1][0] for call in calls)
+
+
+def test_supervisor_defaults_to_codex_and_rejects_invalid_config(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path)
+    calls = []
+    monkeypatch.setattr(cli, "launch_agent", lambda agent, argv: calls.append((agent, argv)))
+    cli.main(["supervisor"])
+    assert calls[0][0] == "codex"
+    (tmp_path / "config.yaml").write_text("supervisor:\n  backend: []\n")
+    with pytest.raises(SystemExit):
+        cli.main(["supervisor"])
+    assert "backend must be a string" in capsys.readouterr().err
