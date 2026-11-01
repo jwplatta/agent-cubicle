@@ -19,7 +19,9 @@ def initialize(home: Path) -> Path:
     if not config.exists():
         try:
             with config.open("x") as stream:
-                yaml.safe_dump({"supervisor": {"backend": "codex"}}, stream)
+                defaults = yaml.safe_load((RESOURCE_DIR.parent / "default_config.yaml").read_text())
+                defaults["supervisor"] = {"backend": "codex"}
+                yaml.safe_dump(defaults, stream, sort_keys=False)
         except FileExistsError:
             pass
 
@@ -45,7 +47,26 @@ def initialize(home: Path) -> Path:
                 stream.write("\n")
         except FileExistsError:
             pass
+    skill_content = (RESOURCE_DIR / "cubicle-supervisor" / "SKILL.md").read_bytes()
+    skill_hash = hashlib.sha256(skill_content).hexdigest()
+    skill = home / "resources" / "skills" / "cubicle-supervisor" / skill_hash / "SKILL.md"
+    skill.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if skill.exists() and skill.read_bytes() != skill_content:
+        raise ValueError(f"Deployed skill differs from its content hash: {skill}")
+    if not skill.exists():
+        try:
+            with skill.open("xb") as stream:
+                stream.write(skill_content)
+        except FileExistsError:
+            if skill.read_bytes() != skill_content:
+                raise ValueError(f"Deployed skill differs from its content hash: {skill}")
     return resource
+
+
+def supervisor_skill_path(home: Path) -> Path:
+    content = (RESOURCE_DIR / "cubicle-supervisor" / "SKILL.md").read_bytes()
+    digest = hashlib.sha256(content).hexdigest()
+    return home / "resources" / "skills" / "cubicle-supervisor" / digest / "SKILL.md"
 
 
 def supervisor_backend(home: Path) -> str:

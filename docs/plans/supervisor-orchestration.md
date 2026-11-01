@@ -1,6 +1,6 @@
 # Cubicle supervisor: initial design
 
-Status: design, 2026-11-01. Cubicle is an independent harness for working across projects, including quant-infra. Details and candidate schema: [execution draft](execution-events-and-storage.md). CLI research and tests: [CLI worker research](../notes/cli-worker-research.md).
+Status: design with an experimental implementation in progress. The first milestone is not complete. Cubicle is an independent harness for working across projects, including quant-infra. Details and candidate schema: [execution draft](execution-events-and-storage.md). CLI research and tests: [CLI worker research](../notes/cli-worker-research.md).
 
 ## Goal and first milestone
 

@@ -411,8 +411,13 @@ def _ensure_resources():
     for hook_file in set(AGENT_HOOKS.values()):
         ensure_copy(PACKAGE_ROOT / hook_file, HOOKS_INSTALL_DIR / hook_file)
     ensure_copy(PACKAGE_ROOT / "db.py", HOOKS_INSTALL_DIR / "db.py")
-    shutil.copy2(DEFAULT_CONFIG, CUBICLE_CONFIG)
-    print(f"Synced event config to {CUBICLE_CONFIG}")
+    ensure_copy(PACKAGE_ROOT / "hook_errors.py", HOOKS_INSTALL_DIR / "hook_errors.py")
+    ensure_copy(PACKAGE_ROOT / "hook_events.py", HOOKS_INSTALL_DIR / "hook_events.py")
+    if not CUBICLE_CONFIG.exists():
+        shutil.copy2(DEFAULT_CONFIG, CUBICLE_CONFIG)
+        print(f"Initialized event config at {CUBICLE_CONFIG}")
+    else:
+        print(f"Preserved existing config at {CUBICLE_CONFIG}")
 
 def init_hooks(agent=None):
     _ensure_resources()
@@ -538,6 +543,11 @@ Examples:
     )
     supervisor_parser.add_argument("--backend", choices=list(LLM_WRAPPERS))
 
+    subparsers.add_parser("db-init", help="Initialize the Cubicle database schema")
+    mcp_parser = subparsers.add_parser("mcp", help="Run the Cubicle MCP server")
+    mcp_parser.add_argument("--transport", choices=["stdio", "streamable-http"], default="stdio")
+    mcp_parser.add_argument("--enable-workers", action="store_true", help="Allow host worker launches")
+
     # Init hooks command
     init_parser = subparsers.add_parser(
         "init-hooks", 
@@ -630,7 +640,32 @@ Examples:
             die(str(exc))
         if backend not in LLM_WRAPPERS:
             die(f"Unsupported supervisor backend: {backend}")
-        launch_agent(backend, [f"Read and follow the Cubicle supervisor instructions at {resource}."])
+        skill = bootstrap.supervisor_skill_path(CUBICLE_HOME)
+        prompt = (f"Read and follow the Cubicle supervisor instructions at {resource} "
+                  f"and the Cubicle skill at {skill}.")
+        if backend == "codex":
+            options = ["-c", f"mcp_servers.cubicle.command={json.dumps(sys.executable)}",
+                       "-c", 'mcp_servers.cubicle.args=["-m", "cubicle.cli", "mcp", "--enable-workers"]',
+                       "-c", f"mcp_servers.cubicle.env.CUBICLE_HOME={json.dumps(str(CUBICLE_HOME))}"]
+            launch_agent(backend, [*options, prompt])
+        else:
+            launch_agent(backend, [prompt])
+    elif args.command == "db-init":
+        from cubicle.store import engine_from_env, initialize_database
+        for name, value in load_shared_env().items():
+            os.environ.setdefault(name, value)
+        try:
+            initialize_database(engine_from_env())
+        except (OSError, ValueError) as exc:
+            die(str(exc))
+        print("Cubicle database initialized")
+    elif args.command == "mcp":
+        for name, value in load_shared_env().items():
+            os.environ.setdefault(name, value)
+        if args.enable_workers:
+            os.environ["CUBICLE_ENABLE_WORKERS"] = "1"
+        from cubicle.mcp_server import mcp
+        mcp.run(transport=args.transport)
     elif args.command == "set-env":
         set_env_var(args.name, args.value)
     elif args.command == "unset-env":

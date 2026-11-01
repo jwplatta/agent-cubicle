@@ -199,3 +199,36 @@ def test_minimal():
 
 if __name__ == "__main__":
     test_minimal()
+
+
+def test_hook_failure_is_reported_without_payload(tmp_path):
+    home = tmp_path / "hook-home"
+    home.mkdir()
+    marker = "sensitive-payload-marker"
+    stdout, stderr, code = run_hook(CODEX_HOOK_PATH, {"secret": marker}, home)
+    assert code == 0
+    log = (home / ".cubicle" / "logs" / "hooks.log").read_text()
+    assert "telemetry hook failed" in log
+    assert marker not in log
+    assert "telemetry hook failed" in stderr
+
+
+def test_managed_hooks_spool_under_run_without_touching_legacy_database(tmp_path):
+    import uuid
+
+    home = tmp_path / "home"
+    write_config(home)
+    run_id = str(uuid.uuid4())
+    cubicle_home = home / ".cubicle"
+    (cubicle_home / "runs" / run_id).mkdir(parents=True)
+    env = {"CUBICLE_RUN_ID": run_id, "CUBICLE_HOME": str(cubicle_home)}
+    for path, event in ((CODEX_HOOK_PATH, "PreToolUse"), (CLAUDE_HOOK_PATH, "PreToolUse"),
+                        (AGY_HOOK_PATH, "PreToolUse")):
+        out, err, code = run_hook(path, {"hook_event_name": event, "session_id": "test"},
+                                  home, env=env)
+        assert code == 0, err
+        assert json.loads(out) == ({"decision": "allow"} if path == AGY_HOOK_PATH else {})
+    events = list((cubicle_home / "runs" / run_id / "hooks").glob("*.json"))
+    assert len(events) == 3
+    assert all(json.loads(path.read_text())["event_type"] == "pre_tool_use" for path in events)
+    assert not db_path_for_home(home).exists()

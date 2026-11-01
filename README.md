@@ -16,7 +16,7 @@ A standardized way to capture and normalize usage data across different LLM fami
 ## Setup Guide
 
 ### 1. Prerequisite
-Ensure you have Python 3.9+ installed on your system.
+Ensure you have Python 3.11+ installed on your system.
 
 ### 2. Local Installation
 Install the Cubicle CLI globally (in editable mode for development):
@@ -49,9 +49,32 @@ Run `cubicle init` to create the local backlog, context, logs, runs, artifacts, 
 versioned supervisor resources under `~/.cubicle`. Existing configuration is preserved.
 `cubicle supervisor` starts Codex by default; set `supervisor.backend` in
 `~/.cubicle/config.yaml` or pass `--backend claude`, `--backend agy`, or
-`--backend codex` to select a CLI. The supervisor receives the deployed instruction
-path and shared environment. Graph management, worker dispatch, MCP, and PostgreSQL
-storage are not implemented yet.
+`--backend codex` to select a CLI. Codex is given a local Cubicle MCP server;
+other supervisor backends need their MCP configuration set separately.
+
+Cubicle's initial MCP tools create and inspect shared Markdown backlog items and
+PostgreSQL task graphs, and can start experimental host worker runs. Configure
+`CUBICLE_DATABASE_URL` in the environment or `~/.cubicle/.env` and run
+`cubicle db-init` once. Use a URL such as
+`postgresql+psycopg://USER:PASSWORD@localhost:5432/cubicle`; never commit credentials.
+Use a dedicated database role when available. The schema initializer refuses existing
+unversioned Cubicle tables and does not migrate older versions.
+
+The host stdio server is `cubicle mcp --enable-workers`. Worker dispatch deliberately
+uses the agent CLI's unattended permission-bypass mode; the node scope is an instruction,
+not an enforced filesystem boundary. Worker output is stored under `~/.cubicle/runs` and
+reconciled after process completion. A cancellation request checks process identity but
+does not yet confirm a terminal state. Full restart recovery, automatic late-hook replay,
+full graph versioning, usage thresholds, and PR completion/cleanup are not yet implemented.
+Use only for supervised experiments; do not rely on it for unattended production work.
+
+The Compose service runs MCP on loopback port 8765 and connects to the existing PostgreSQL
+instance; set `CUBICLE_DATABASE_URL` with `host.docker.internal` as its host and run
+`docker compose up -d cubicle-mcp`. Worker launch is disabled in that container: workers
+must run on the host. The HTTP endpoint has no authentication and must remain local. For an isolated alternative, `docker compose --profile standalone up -d postgres`
+starts a separate PostgreSQL on loopback port 55432 with a named volume; set
+`CUBICLE_STANDALONE_POSTGRES_PASSWORD` first. Choose the intended database URL explicitly;
+Compose never starts or modifies quant-infra services.
 
 ### Commands
 

@@ -30,6 +30,12 @@ def main():
             native_event, native_event.lower() if native_event else "unknown"
         )
 
+        from hook_events import spool_if_managed
+
+        if spool_if_managed(normalized_event, payload):
+            print(json.dumps({}))
+            return
+
         insert_telemetry(
             session_id=payload.get("session_id"),
             event_type=normalized_event,
@@ -39,8 +45,11 @@ def main():
 
         print(json.dumps({}))
 
-    except Exception:
-        pass
+    except Exception as exc:
+        sys.path.insert(0, str(Path(__file__).parent))
+        from hook_errors import report
+
+        report(exc)
 
 
 if __name__ == "__main__":

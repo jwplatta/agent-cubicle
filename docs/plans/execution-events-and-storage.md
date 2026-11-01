@@ -1,6 +1,6 @@
 # Execution graph, events and PostgreSQL: draft contract
 
-Status: design, 2026-11-01. No application schema or orchestration implementation has been applied. Companion to [supervisor plan](supervisor-orchestration.md). Start with one adapter while supporting two concurrent workstreams; this contract is a candidate to validate, not a commitment to build every table immediately.
+Status: design with an experimental implementation in progress. An initial versioned schema, MCP graph tools and host worker runner exist; many controls and recovery guarantees below are not implemented. Companion to [supervisor plan](supervisor-orchestration.md). Start with one adapter while supporting two concurrent workstreams; this contract is a candidate to validate, not a commitment to build every table immediately.
 
 ## Initialization and process model
 

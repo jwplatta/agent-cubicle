@@ -144,7 +144,7 @@ def test_supervisor_uses_config_and_explicit_override(monkeypatch, tmp_path):
     cli.main(["supervisor"])
     cli.main(["supervisor", "--backend", "codex"])
     assert [call[0] for call in calls] == ["claude", "codex"]
-    assert all("supervisor.md" in call[1][0] for call in calls)
+    assert all("supervisor.md" in call[1][-1] for call in calls)
 
 
 def test_supervisor_defaults_to_codex_and_rejects_invalid_config(monkeypatch, tmp_path, capsys):
@@ -157,3 +157,11 @@ def test_supervisor_defaults_to_codex_and_rejects_invalid_config(monkeypatch, tm
     with pytest.raises(SystemExit):
         cli.main(["supervisor"])
     assert "backend must be a string" in capsys.readouterr().err
+
+
+def test_init_new_config_keeps_legacy_hook_mappings(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path)
+    cli.main(["init"])
+    config = cli.yaml.safe_load((tmp_path / "config.yaml").read_text())
+    assert config["supervisor"]["backend"] == "codex"
+    assert "codex" in config["agents"]
