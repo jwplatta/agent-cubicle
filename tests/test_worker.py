@@ -280,3 +280,24 @@ def test_cancel_requested_session_cannot_start_another_node(tmp_path):
         db.add(store.Run(node_id=a["id"], worker_session_id=sess["id"], status="cancel_requested"))
     with pytest.raises(ValueError, match="active run"):
         worker.start(engine, tmp_path, b["id"], sess["id"], str(tmp_path))
+
+
+def test_recover_confirms_cancelled_only_when_group_is_gone(monkeypatch, tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'recover-cancel.db'}")
+    store.initialize_database(engine)
+    task = store.create_task(engine, "T", "O", "P", "other", ["check"])
+    node = store.add_node(engine, task["id"], "N", "O", [], [], ["out"], ["check"])
+    sess = worker.create_session(engine, task["id"], "codex")
+    with Session(engine) as db, db.begin():
+        run = store.Run(node_id=node["id"], worker_session_id=sess["id"],
+                        status="cancel_requested", pid=1234, result={"process_start": "old"})
+        db.add(run)
+        db.flush()
+        run_id = run.id
+    monkeypatch.setattr(worker, "process_start", lambda pid: None)
+    def no_group(pid, sig):
+        raise ProcessLookupError()
+    monkeypatch.setattr(worker.os, "killpg", no_group)
+    assert worker.recover(engine, tmp_path, run_id)["status"] == "cancelled"
+    with Session(engine) as db:
+        assert db.get(store.Node, node["id"]).status == "failed"

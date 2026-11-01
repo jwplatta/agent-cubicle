@@ -195,7 +195,8 @@ def cancel(engine, run_id):
         args = subprocess.run(["ps", "-p", str(run.pid), "-o", "args="],
                               capture_output=True, text=True, check=False)
         if (not recorded or recorded != current or args.returncode != 0
-                or f"cubicle.worker run {run_id}" not in args.stdout):
+                or f"cubicle.worker run {run_id}" not in args.stdout
+                or os.getpgid(run.pid) != run.pid):
             raise ValueError("Cannot verify worker identity; no signal sent")
         run.status = "cancel_requested"
         pid = run.pid
@@ -204,6 +205,38 @@ def cancel(engine, run_id):
     except ProcessLookupError:
         return {"run_id": run_id, "status": "unknown", "detail": "process group disappeared"}
     return {"run_id": run_id, "status": "cancel_requested"}
+
+
+def recover(engine, home, run_id):
+    """Reconcile terminal output or conservatively inspect a nonterminal worker."""
+    terminal = Path(home) / "runs" / run_id / "terminal.json"
+    if terminal.exists():
+        return reconcile(engine, home, run_id)
+    with Session(engine) as db, db.begin():
+        run = db.scalar(select(store.Run).where(store.Run.id == run_id).with_for_update())
+        if not run:
+            raise ValueError("Run not found")
+        if run.status not in {"starting", "running", "cancel_requested", "unknown"}:
+            return {"run_id": run_id, "status": run.status}
+        if not run.pid:
+            return {"run_id": run_id, "status": "unknown", "detail": "launch identity unavailable"}
+        current = process_start(run.pid)
+        recorded = (run.result or {}).get("process_start")
+        if current and current == recorded:
+            return {"run_id": run_id, "status": run.status, "detail": "worker process exists"}
+        if current:
+            return {"run_id": run_id, "status": "unknown", "detail": "PID identity changed"}
+        if run.status == "cancel_requested":
+            try:
+                os.killpg(run.pid, 0)
+            except ProcessLookupError:
+                run.status = "cancelled"
+                db.get(store.Node, run.node_id).status = "failed"
+                return {"run_id": run_id, "status": "cancelled"}
+            except PermissionError:
+                pass
+        run.status = "unknown"
+        return {"run_id": run_id, "status": "unknown", "detail": "no terminal evidence"}
 
 
 def get_run(engine, run_id):

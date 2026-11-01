@@ -93,9 +93,9 @@ def start_node(node_id: str, worker_session_id: str, cwd: str) -> dict:
 
 @mcp.tool()
 def reconcile_run(run_id: str) -> dict:
-    """Ingest a completed worker spool; incomplete runs remain unknown."""
+    """Recover terminal output or conservatively inspect an incomplete run."""
     home = os.environ.get("CUBICLE_HOME", os.path.expanduser("~/.cubicle"))
-    return worker.reconcile(get_engine(), home, run_id)
+    return worker.recover(get_engine(), home, run_id)
 
 
 @mcp.tool()
