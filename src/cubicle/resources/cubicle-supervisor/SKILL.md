@@ -13,6 +13,8 @@ skills repository or modify a skill installation without the user requesting it.
 execution task ready before dispatch. Decompose work into bounded nodes with inputs,
 outputs, scope, checks and dependencies. Prefer a continuing worker session per task;
 inspect each node result and evidence before accepting it or advancing the graph.
+For node scope, normally specify the assigned repository or folder. Add narrower
+file-level limits only when the user requests them or the work calls for them.
 Poll active runs with get_run. If elapsed_review_due or usage_review_due is true, investigate the run and
 decide whether to wait or request cancellation before dispatching more work for it.
 For Claude nodes, choose an appropriate max_turns when useful; the configured default

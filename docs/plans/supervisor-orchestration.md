@@ -16,7 +16,7 @@ Keep one central Markdown backlog under `~/.cubicle/backlog`, with stable IDs an
 
 ## Graph and worker lifecycle
 
-A **task** defines the outcome, scope and acceptance criteria. The supervisor breaks it into a few meaningful bounded **nodes**, each with inputs, constraints, outputs, checks and dependencies. Each node is assigned to a worker; it may involve many tool and model calls. The supervisor evaluates each result and then advances, requests correction or changes direction. A simple task can have one node. Persist the graph, changes, results and gate evidence.
+A **task** defines the outcome, scope and acceptance criteria. The supervisor breaks it into a few meaningful bounded **nodes**, each with inputs, constraints, outputs, checks and dependencies. Scope will normally be the assigned repository or folder; use narrower file-level limits only when requested or useful for the task. Each node is assigned to a worker; it may involve many tool and model calls. The supervisor evaluates each result and then advances, requests correction or changes direction. A simple task can have one node. Persist the graph, changes, results and gate evidence.
 
 Prefer one continuing worker session per backlog task across sequential nodes. Distinct IDs identify the backlog item, task, graph version, node, worker session and each node run or retry. Provider session IDs are linked to Cubicle session IDs. The supervisor can use additional workers for independent parallel nodes, with isolated write scopes. Session resumption is backend-specific; if unavailable, create a linked replacement with the relevant graph context and outputs.
 

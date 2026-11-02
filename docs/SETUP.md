@@ -139,7 +139,7 @@ supervisor:
 ```
 
 Cubicle launches agents with permission bypass on the host, as requested for
-unattended work. Node scopes are instructions, not filesystem isolation. Review
+unattended work. The usual node scope is the assigned repository or folder. Review
 the repository and configuration before allowing a supervisor or worker to operate.
 
 ## 7. Plan and run your first task
