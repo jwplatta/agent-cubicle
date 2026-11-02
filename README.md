@@ -16,6 +16,9 @@ direct CLI wrappers use a separate local SQLite telemetry database.
 
 ## Setup Guide
 
+For the full installation, configuration, and first-task walkthrough, see
+**[docs/SETUP.md](docs/SETUP.md)**.
+
 ### 1. Prerequisite
 Ensure you have Python 3.11+ installed on your system.
 
@@ -100,7 +103,7 @@ Compose never starts or modifies quant-infra services.
 
 ### Commands
 
-- `cubicle init-hooks [--agent <name>] [--force]`: Initializes centralized resources and/or registers hooks for an agent. Use `--force` to refresh code and reset the database.
+- `cubicle init-hooks [--agent <name>]`: Initializes centralized resources and/or registers hooks for an agent.
 - `cubicle del-hooks --agent <name>`: Unregisters hooks from the specified agent.
 - `cubicle set-env NAME VALUE`: Stores a shared env var in `~/.cubicle/.env` for Cubicle-launched agents.
 - `cubicle unset-env NAME`: Removes a shared env var from `~/.cubicle/.env`.
@@ -142,7 +145,7 @@ Direct agent launches outside the wrapper are treated as `unknown` unless `CUBIC
 Query the SQLite database at `~/.cubicle/data/telemetry.db`:
 
 ```bash
-sqlite3 ~/.cubicle/data/telemetry.db "SELECT timestamp, llm_family, event_type FROM telemetry ORDER BY id DESC LIMIT 10;"
+sqlite3 ~/.cubicle/data/telemetry.db "SELECT timestamp, session_id, event_type FROM telemetry ORDER BY id DESC LIMIT 10;"
 ```
 
 ## Related Tools
