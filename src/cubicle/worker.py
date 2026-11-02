@@ -1,5 +1,6 @@
 """Host worker launch and durable subprocess output."""
 
+import hashlib
 import json
 import os
 import signal
@@ -8,9 +9,11 @@ import sys
 from pathlib import Path
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
-from cubicle import store
+from cubicle import backlog, bootstrap, store
 
 
 def create_session(engine, task_id, backend):
@@ -30,6 +33,10 @@ def start(engine, home, node_id, worker_session_id, cwd):
     if not path.is_dir():
         raise ValueError("Worker cwd must be a directory")
     with Session(engine) as db, db.begin():
+        initial = db.get(store.WorkerSession, worker_session_id)
+        if not initial:
+            raise ValueError("Worker session not found")
+        task = db.scalar(select(store.Task).where(store.Task.id == initial.task_id).with_for_update())
         ws = db.scalar(select(store.WorkerSession).where(
             store.WorkerSession.id == worker_session_id).with_for_update())
         node = db.scalar(select(store.Node).where(store.Node.id == node_id).with_for_update())
@@ -37,7 +44,6 @@ def start(engine, home, node_id, worker_session_id, cwd):
             raise ValueError("Node and worker session must belong to the same task")
         if node.status not in {"pending", "failed"}:
             raise ValueError("Node is already running, awaiting review, or accepted")
-        task = db.get(store.Task, ws.task_id)
         if task.status not in {"ready", "active"}:
             raise ValueError("Task must be ready before dispatch")
         dependencies = list(db.scalars(select(store.Edge.from_id).where(store.Edge.to_id == node_id)))
@@ -48,27 +54,36 @@ def start(engine, home, node_id, worker_session_id, cwd):
                                                 store.Run.status.in_(["starting", "running", "cancel_requested", "unknown"]))):
             raise ValueError("Worker session already has an active run")
         task.status = "active"
+        backlog_ref = task.backlog_ref
         node.status = "running"
         run = store.Run(node_id=node_id, worker_session_id=ws.id, status="starting",
                         result={"cwd": str(path)})
         db.add(run)
         db.flush()
         run_id = run.id
+        node.current_run_id = run_id
     run_dir = Path(home) / "runs" / run_id
     try:
+        bootstrap.initialize(Path(home))
         run_dir.mkdir(parents=True, mode=0o700)
         proc = subprocess.Popen([sys.executable, "-m", "cubicle.worker", "run", run_id],
                                 start_new_session=True, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                 env={**os.environ, "CUBICLE_HOME": str(home)})
-    except OSError as exc:
+    except (OSError, ValueError) as exc:
         with Session(engine) as db, db.begin():
             run = db.get(store.Run, run_id)
             run.status = "failed"
             db.get(store.Node, node_id).status = "failed"
             run.result = {"error": str(exc)}
         raise
-    return {"run_id": run_id, "pid": proc.pid, "status": "starting"}
+    result = {"run_id": run_id, "pid": proc.pid, "status": "starting"}
+    if backlog_ref:
+        try:
+            backlog.update(backlog_ref, status="in-progress")
+        except (OSError, ValueError) as exc:
+            result["backlog_sync_error"] = str(exc)
+    return result
 
 
 def command(backend, prompt, session_id):
@@ -97,18 +112,32 @@ def run_worker(run_id):
             node = db.get(store.Node, run.node_id)
             ws = db.get(store.WorkerSession, run.worker_session_id)
             cwd = run.result["cwd"]
-            prompt = (f"Complete this bounded Cubicle node. Return outputs, checks, decisions and "
-                      f"blockers. Do not claim task completion.\nNode: {node.title}\n"
+            task = db.get(store.Task, ws.task_id)
+            changes = list(db.scalars(select(store.GraphChange).where(
+                store.GraphChange.task_id == task.id).order_by(store.GraphChange.created_at.desc())))
+            feedback = next((change.reason for change in changes if node.id in change.affected), None)
+            skill = bootstrap.skill_path(home, "cubicle-worker")
+            prompt = (f"Read and follow the Cubicle worker skill at {skill}. "
+                      f"Complete this bounded Cubicle node. Return outputs, checks, decisions and "
+                      f"blockers. Do not claim task completion.\nTask: {task.title}\n"
+                      f"Task objective: {task.objective}\nTask acceptance: {json.dumps(task.acceptance)}\n"
+                      f"Latest relevant review feedback: {feedback or 'none'}\nNode: {node.title}\n"
                       f"Objective: {node.objective}\nInputs: {json.dumps(node.inputs)}\n"
                       f"Scope: {json.dumps(node.scope)}\nOutputs: {json.dumps(node.outputs)}\n"
                       f"Checks: {json.dumps(node.checks)}")
             args = command(ws.backend, prompt, ws.provider_session_id)
             run.pid = os.getpid()
-            run.result = {**run.result, "process_start": process_start(run.pid)}
+            manifest = {"task_id": task.id, "node_id": node.id, "backend": ws.backend,
+                        "provider_session_id": ws.provider_session_id, "cwd": cwd,
+                        "skill_path": str(skill), "skill_sha256": skill.parent.name,
+                        "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest()}
+            run.result = {**run.result, "process_start": process_start(run.pid),
+                          "context_manifest": manifest, "prompt": prompt}
             run.status = "running"
         with (run_dir / "stdout.jsonl").open("w") as out, (run_dir / "stderr.log").open("w") as err:
             proc = subprocess.run(args, cwd=cwd, stdout=out, stderr=err,
-                                  env={**os.environ, "CUBICLE_RUN_ID": run_id}, check=False)
+                                  env={**os.environ, "CUBICLE_RUN_ID": run_id,
+                                       "CUBICLE_PYTHON": sys.executable}, check=False)
         terminal = {"exit_code": proc.returncode}
         temp = run_dir / "terminal.tmp"
         temp.write_text(json.dumps(terminal))
@@ -152,9 +181,12 @@ def reconcile(engine, home, run_id):
         hook = json.loads(path.read_text())
         hooks.append(hook)
     with Session(engine) as db, db.begin():
-        run = db.scalar(select(store.Run).where(store.Run.id == run_id).with_for_update())
-        if not run:
+        initial = db.get(store.Run, run_id)
+        if not initial:
             raise ValueError("Run not found")
+        initial_node = db.get(store.Node, initial.node_id)
+        db.scalar(select(store.Task).where(store.Task.id == initial_node.task_id).with_for_update())
+        run = db.scalar(select(store.Run).where(store.Run.id == run_id).with_for_update())
         ws = db.get(store.WorkerSession, run.worker_session_id)
         for index, payload in rows:
             event_id = f"{run_id}:{index}"
@@ -164,14 +196,20 @@ def reconcile(engine, home, run_id):
                                    payload=payload))
         for hook in hooks:
             event_id = f"{run_id}:hook:{hook['event_id']}"
-            if not db.get(store.Event, event_id):
-                db.add(store.Event(id=event_id, run_id=run_id, source="hook",
-                                   event_type=hook["event_type"], payload=hook["payload"]))
+            insert = pg_insert if engine.dialect.name == "postgresql" else sqlite_insert
+            db.execute(insert(store.Event).values(
+                id=event_id, run_id=run_id, source="hook", event_type=hook["event_type"],
+                payload=hook["payload"]).on_conflict_do_nothing(index_elements=["id"]))
         if session_id:
+            if ws.provider_session_id and ws.provider_session_id != session_id:
+                raise ValueError("Provider session changed; a new worker session is required")
             ws.provider_session_id = session_id
         run.status = "succeeded" if terminal["exit_code"] == 0 and completed else "failed"
         node = db.get(store.Node, run.node_id)
-        if node.status != "accepted":
+        other_active = db.scalar(select(store.Run.id).where(
+            store.Run.node_id == node.id, store.Run.id != run_id,
+            store.Run.status.in_(["starting", "running", "cancel_requested", "unknown"])))
+        if node.status == "running" and node.current_run_id == run_id and not other_active:
             node.status = "awaiting_review" if run.status == "succeeded" else "failed"
         run.result = {**(run.result or {}), **terminal, "session_id": session_id}
         return {"run_id": run_id, "status": run.status, "session_id": session_id}
@@ -239,6 +277,21 @@ def recover(engine, home, run_id):
         return {"run_id": run_id, "status": "unknown", "detail": "no terminal evidence"}
 
 
+def recover_pending(engine, home):
+    """Reconcile interrupted runs without relaunching work or assuming success."""
+    with Session(engine) as db:
+        ids = list(db.scalars(select(store.Run.id).where(
+            store.Run.status.in_(["starting", "running", "cancel_requested", "unknown"]))))
+    results = []
+    for run_id in ids:
+        try:
+            results.append(recover(engine, home, run_id))
+        except Exception as exc:
+            print(f"Worker recovery failed for {run_id}: {type(exc).__name__}", file=sys.stderr)
+            results.append({"run_id": run_id, "status": "recovery_error"})
+    return results
+
+
 def get_run(engine, run_id):
     with Session(engine) as db:
         run = db.get(store.Run, run_id)
@@ -276,12 +329,17 @@ def accept_node(engine, run_id, evidence):
     if not evidence or not all(isinstance(x, str) and x.strip() for x in evidence):
         raise ValueError("Acceptance requires evidence")
     with Session(engine) as db, db.begin():
+        initial = db.get(store.Run, run_id)
+        if not initial:
+            raise ValueError("Run not found")
+        initial_node = db.get(store.Node, initial.node_id)
+        db.scalar(select(store.Task).where(store.Task.id == initial_node.task_id).with_for_update())
         run = db.scalar(select(store.Run).where(store.Run.id == run_id).with_for_update())
         if not run or run.status != "succeeded":
             raise ValueError("Only a successful run can be accepted")
         node = db.get(store.Node, run.node_id)
-        if node.status != "awaiting_review":
-            raise ValueError("Node is not awaiting review")
+        if node.status != "awaiting_review" or node.current_run_id != run_id:
+            raise ValueError("Node is not awaiting review for this run")
         if len(evidence) < len(node.checks):
             raise ValueError("Provide evidence for every check")
         node.status = "accepted"

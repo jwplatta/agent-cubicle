@@ -4,7 +4,7 @@ import os
 
 from mcp.server.fastmcp import FastMCP
 
-from cubicle import backlog, store, worker
+from cubicle import backlog, lifecycle, store, worker, workspaces
 
 mcp = FastMCP("Cubicle", host=os.environ.get("CUBICLE_MCP_HOST", "127.0.0.1"),
               port=int(os.environ.get("CUBICLE_MCP_PORT", "8765")))
@@ -42,6 +42,8 @@ def update_backlog_item(item_id: str, status: str | None = None,
 def create_task(title: str, objective: str, project: str, kind: str,
                 acceptance: list[str], backlog_ref: str | None = None) -> dict:
     """Create a draft task; kind is coding or other."""
+    if backlog_ref and not any(item.get("id") == backlog_ref for item in backlog.list_items()):
+        raise ValueError("Backlog item not found")
     return store.create_task(get_engine(), title, objective, project, kind, acceptance, backlog_ref)
 
 
@@ -54,7 +56,61 @@ def list_tasks() -> list[dict]:
 @mcp.tool()
 def mark_task_ready(task_id: str) -> dict:
     """Mark a sufficiently specified draft task ready; does not start work."""
-    return store.mark_task_ready(get_engine(), task_id)
+    result = store.mark_task_ready(get_engine(), task_id)
+    if result.get("backlog_ref"):
+        try:
+            backlog.update(result["backlog_ref"], status="ready")
+        except (OSError, ValueError) as exc:
+            result["backlog_sync_error"] = str(exc)
+    return result
+
+
+@mcp.tool()
+def mark_task_awaiting_review(task_id: str) -> dict:
+    """Mark an active task ready for human review after all nodes are accepted."""
+    result = store.mark_task_awaiting_review(get_engine(), task_id)
+    if result.get("backlog_ref"):
+        try:
+            backlog.update(result["backlog_ref"], status="awaiting-review")
+        except (OSError, ValueError) as exc:
+            result["backlog_sync_error"] = str(exc)
+    return result
+
+
+@mcp.tool()
+def complete_noncoding_task(task_id: str, user_confirmation: str) -> dict:
+    """Complete a non-coding task only after the user explicitly confirms it."""
+    return lifecycle.complete_other(get_engine(), task_id, user_confirmation)
+
+
+@mcp.tool()
+def cleanup_merged_branch(task_id: str, repo_path: str, pr_number: int) -> dict:
+    """Safely delete the local branch of a verified merged PR linked to this task."""
+    if os.environ.get("CUBICLE_ENABLE_WORKERS") != "1":
+        raise ValueError("Host repository access is disabled for this MCP server")
+    return lifecycle.cleanup_merged_branch(get_engine(), task_id, repo_path, pr_number)
+
+
+@mcp.tool()
+def complete_coding_task(task_id: str, repo_path: str, pr_number: int) -> dict:
+    """Complete only after checking the PR is merged and its local branch is absent."""
+    if os.environ.get("CUBICLE_ENABLE_WORKERS") != "1":
+        raise ValueError("Host repository access is disabled for this MCP server")
+    return lifecycle.complete_coding(get_engine(), task_id, repo_path, pr_number)
+
+
+@mcp.tool()
+def sync_task_backlog(task_id: str) -> dict:
+    """Repair the linked backlog status from an existing task status."""
+    task = next((t for t in store.list_tasks(get_engine()) if t["id"] == task_id), None)
+    if not task or not task.get("backlog_ref"):
+        raise ValueError("Task or linked backlog item not found")
+    mapping = {"draft": "not-started", "ready": "ready", "active": "in-progress",
+               "awaiting_review": "awaiting-review", "blocked": "blocked", "completed": "complete"}
+    status = mapping.get(task["status"])
+    if not status:
+        raise ValueError("Task status cannot be synchronized")
+    return backlog.update(task["backlog_ref"], status=status, allow_complete=status == "complete")
 
 
 @mcp.tool()
@@ -74,6 +130,33 @@ def add_dependency(from_id: str, to_id: str) -> dict:
 def show_graph(task_id: str) -> dict:
     """Show a task's nodes and dependency edges."""
     return store.graph(get_engine(), task_id)
+
+
+@mcp.tool()
+def show_graph_version(task_id: str, version: int) -> dict:
+    """Inspect a saved version of the task graph."""
+    return store.graph_version(get_engine(), task_id, version)
+
+
+@mcp.tool()
+def revise_node(node_id: str, reason: str) -> dict:
+    """Reopen a node and invalidate dependent nodes after review feedback."""
+    result = store.revise_node(get_engine(), node_id, reason)
+    if result.get("backlog_ref"):
+        try:
+            backlog.update(result["backlog_ref"], status="in-progress")
+        except (OSError, ValueError) as exc:
+            result["backlog_sync_error"] = str(exc)
+    return result
+
+
+@mcp.tool()
+def create_task_worktree(task_id: str, repo_path: str, branch: str) -> dict:
+    """Create an isolated task-owned worktree and new branch for coding work."""
+    if os.environ.get("CUBICLE_ENABLE_WORKERS") != "1":
+        raise ValueError("Host repository access is disabled for this MCP server")
+    home = os.environ.get("CUBICLE_HOME", os.path.expanduser("~/.cubicle"))
+    return workspaces.create(get_engine(), home, task_id, repo_path, branch)
 
 
 @mcp.tool()

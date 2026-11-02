@@ -2,23 +2,25 @@
 
 import json
 import os
+import subprocess
 import uuid
 from pathlib import Path
 
 
 def spool_if_managed(event_type, payload):
     run_id = os.environ.get("CUBICLE_RUN_ID")
-    if not run_id:
+    supervisor_id = os.environ.get("CUBICLE_SUPERVISOR_ID") if not run_id else None
+    identity = run_id or supervisor_id
+    if not identity:
         return False
-    # Do not permit paths to be supplied through an untrusted environment value.
-    if str(uuid.UUID(run_id)) != run_id:
-        raise ValueError("Invalid Cubicle run ID")
+    if str(uuid.UUID(identity)) != identity:
+        raise ValueError("Invalid Cubicle event identity")
     home = Path(os.environ.get("CUBICLE_HOME", Path.home() / ".cubicle"))
-    run_dir = home / "runs" / run_id
-    if not run_dir.is_dir():
+    parent = home / ("runs" if run_id else "supervisors") / identity
+    if run_id and not parent.is_dir():
         raise ValueError("Cubicle run directory does not exist")
-    directory = run_dir / "hooks"
-    directory.mkdir(exist_ok=True, mode=0o700)
+    directory = parent / "hooks"
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     event_id = str(uuid.uuid4())
     tmp = directory / (event_id + ".tmp")
     final = directory / (event_id + ".json")
@@ -30,6 +32,10 @@ def spool_if_managed(event_type, payload):
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(tmp, final)
+        if os.environ.get("CUBICLE_PYTHON"):
+            subprocess.Popen([os.environ["CUBICLE_PYTHON"], "-m", "cubicle.collector", str(final)],
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, start_new_session=True)
     finally:
         if tmp.exists():
             tmp.unlink()

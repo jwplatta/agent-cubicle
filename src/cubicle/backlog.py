@@ -47,16 +47,16 @@ def list_items():
     return result
 
 
-def update(item_id, status=None, priority=None, body=None):
+def update(item_id, status=None, priority=None, body=None, *, allow_complete=False):
     try:
         identifier = str(uuid.UUID(item_id))
     except ValueError as exc:
         raise ValueError("Invalid backlog ID") from exc
-    if status is not None and status not in {"not-started", "ready", "in-progress", "blocked", "complete"}:
+    if status is not None and status not in {"not-started", "ready", "in-progress", "awaiting-review", "blocked", "complete"}:
         raise ValueError("Invalid status")
     if priority is not None and priority not in {"low", "medium", "high", "critical"}:
         raise ValueError("Invalid priority")
-    if status == "complete":
+    if status == "complete" and not allow_complete:
         raise ValueError("Completion requires the task-specific completion workflow")
     root = backlog_dir()
     path = root / f"{identifier}.md"

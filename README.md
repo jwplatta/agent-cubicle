@@ -58,15 +58,19 @@ PostgreSQL task graphs, and can start experimental host worker runs. Configure
 `cubicle db-init` once. Use a URL such as
 `postgresql+psycopg://USER:PASSWORD@localhost:5432/cubicle`; never commit credentials.
 Use a dedicated database role when available. The schema initializer refuses existing
-unversioned Cubicle tables and does not migrate older versions.
+unversioned Cubicle tables and migrates supported earlier Cubicle schema versions.
 
 The host stdio server is `cubicle mcp --enable-workers`. Worker dispatch deliberately
 uses the agent CLI's unattended permission-bypass mode; the node scope is an instruction,
 not an enforced filesystem boundary. Worker output is stored under `~/.cubicle/runs` and
-reconciled after process completion. A cancellation request checks process identity but
-does not yet confirm a terminal state. Full restart recovery, automatic late-hook replay,
-full graph versioning, usage thresholds, and PR completion/cleanup are not yet implemented.
-Use only for supervised experiments; do not rely on it for unattended production work.
+reconciled after process completion. Hook records are spooled and retried, and startup
+checks incomplete runs without relaunching them. Unknown outcomes require investigation.
+Graph snapshots and verified merged-branch cleanup are available; usage thresholds and
+reliable termination of independently detached descendants are not yet implemented.
+Raw prompts and event payloads may contain credentials or other sensitive data and are
+stored in the local spool and database without comprehensive redaction. Restrict access
+to those locations and do not use secrets you cannot safely expose there. Use only for
+supervised experiments; do not rely on it for unattended production work.
 
 The Compose service runs MCP on loopback port 8765 and connects to the existing PostgreSQL
 instance; set `CUBICLE_DATABASE_URL` with `host.docker.internal` as its host and run

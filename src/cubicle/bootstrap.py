@@ -47,26 +47,33 @@ def initialize(home: Path) -> Path:
                 stream.write("\n")
         except FileExistsError:
             pass
-    skill_content = (RESOURCE_DIR / "cubicle-supervisor" / "SKILL.md").read_bytes()
-    skill_hash = hashlib.sha256(skill_content).hexdigest()
-    skill = home / "resources" / "skills" / "cubicle-supervisor" / skill_hash / "SKILL.md"
-    skill.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if skill.exists() and skill.read_bytes() != skill_content:
-        raise ValueError(f"Deployed skill differs from its content hash: {skill}")
-    if not skill.exists():
-        try:
-            with skill.open("xb") as stream:
-                stream.write(skill_content)
-        except FileExistsError:
-            if skill.read_bytes() != skill_content:
-                raise ValueError(f"Deployed skill differs from its content hash: {skill}")
+    for name in ("cubicle-supervisor", "cubicle-worker"):
+        skill_content = (RESOURCE_DIR / name / "SKILL.md").read_bytes()
+        skill_hash = hashlib.sha256(skill_content).hexdigest()
+        skill = home / "resources" / "skills" / name / skill_hash / "SKILL.md"
+        skill.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if skill.exists() and skill.read_bytes() != skill_content:
+            raise ValueError(f"Deployed skill differs from its content hash: {skill}")
+        if not skill.exists():
+            try:
+                with skill.open("xb") as stream:
+                    stream.write(skill_content)
+            except FileExistsError:
+                if skill.read_bytes() != skill_content:
+                    raise ValueError(f"Deployed skill differs from its content hash: {skill}")
     return resource
 
 
-def supervisor_skill_path(home: Path) -> Path:
-    content = (RESOURCE_DIR / "cubicle-supervisor" / "SKILL.md").read_bytes()
+def skill_path(home: Path, name: str) -> Path:
+    if name not in {"cubicle-supervisor", "cubicle-worker"}:
+        raise ValueError("Unknown Cubicle skill")
+    content = (RESOURCE_DIR / name / "SKILL.md").read_bytes()
     digest = hashlib.sha256(content).hexdigest()
-    return home / "resources" / "skills" / "cubicle-supervisor" / digest / "SKILL.md"
+    return home / "resources" / "skills" / name / digest / "SKILL.md"
+
+
+def supervisor_skill_path(home: Path) -> Path:
+    return skill_path(home, "cubicle-supervisor")
 
 
 def supervisor_backend(home: Path) -> str:

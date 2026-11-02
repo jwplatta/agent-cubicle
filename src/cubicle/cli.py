@@ -6,9 +6,12 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
+import uuid
 from pathlib import Path
 
 import yaml
+import tomlkit
 from dotenv import dotenv_values
 
 from cubicle import bootstrap
@@ -62,10 +65,18 @@ def load_shared_env():
 
 def write_shared_env(env_vars):
     ensure_cubicle_home()
-    with open(ENV_FILE, "w") as f:
-        for key, value in env_vars.items():
-            encoded = json.dumps(value)
-            f.write(f"{key}={encoded}\n")
+    fd, temporary = tempfile.mkstemp(prefix=".env-", dir=ENV_FILE.parent)
+    try:
+        with os.fdopen(fd, "w") as f:
+            for key, value in env_vars.items():
+                encoded = json.dumps(value)
+                f.write(f"{key}={encoded}\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporary, ENV_FILE)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def set_env_var(name, value):
@@ -98,6 +109,9 @@ def launch_agent(agent, argv):
 
     env = os.environ.copy()
     env.update(load_shared_env())
+    for name in ("CUBICLE_SUPERVISOR_ID", "CUBICLE_PYTHON", "CUBICLE_HOME"):
+        if name in os.environ:
+            env[name] = os.environ[name]
     env["CUBICLE_LLM_FAMILY"] = agent
     os.execvpe(executable, [agent, *argv], env)
 
@@ -267,46 +281,45 @@ def update_json_settings(agent, settings_path, hook_script, events):
         json.dump(settings, f, indent=2)
 
 def update_codex_toml(config_path, hook_script, events):
-    # Minimal TOML injection
-    if not config_path.exists():
-        content = "[features]\nhooks = true\n\n"
-    else:
-        with open(config_path, "r") as f:
-            content = f.read()
-
-    content = content.replace("codex_hooks = true\n", "")
-    if "hooks = true" not in content:
-        if "[features]" in content:
-            content = content.replace("[features]", "[features]\nhooks = true")
-        else:
-            content = "[features]\nhooks = true\n\n" + content
-
-    # Clean up existing cubicle-telemetry blocks first to avoid duplication/stale paths
-    lines = content.splitlines()
-    new_lines = []
-    skip_mode = False
-    for line in lines:
-        if line.startswith("[[hooks.") and "cubicle-telemetry" in "".join(lines[lines.index(line):lines.index(line)+10]):
-            skip_mode = True
-            continue
-        if skip_mode:
-            if line.startswith("[[hooks.") or line.startswith("[projects.") or line.startswith("[features]"):
-                skip_mode = False
-            else:
-                continue
-        if "cubicle-telemetry" in line:
-            continue
-        new_lines.append(line)
-    
-    content = "\n".join(new_lines)
-
-    # Append fresh blocks
+    document = tomlkit.parse(config_path.read_text() if config_path.exists() else "")
+    _remove_codex_hooks(document)
+    features = document.setdefault("features", tomlkit.table())
+    features["hooks"] = True
+    hooks = document.setdefault("hooks", tomlkit.table())
     for event in events:
-        hook_block = f'\n[[hooks.{event}]]\nmatcher = "*"\n\n[[hooks.{event}.hooks]]\nname = "cubicle-telemetry"\ntype = "command"\ncommand = "python3 {hook_script}"\ndescription = "Cubicle unified agent telemetry"\n'
-        content += hook_block
+        groups = hooks.setdefault(event, tomlkit.aot())
+        group = tomlkit.table()
+        group["matcher"] = "*"
+        item = tomlkit.table()
+        item.update({"name": "cubicle-telemetry", "type": "command",
+                     "command": f"python3 {hook_script}",
+                     "description": "Cubicle unified agent telemetry"})
+        group["hooks"] = tomlkit.aot()
+        group["hooks"].append(item)
+        groups.append(group)
+    config_path.write_text(tomlkit.dumps(document))
 
-    with open(config_path, "w") as f:
-        f.write(content)
+
+def _remove_codex_hooks(document):
+    hooks = document.get("hooks", {})
+    for event in list(hooks):
+        groups = hooks[event]
+        if not isinstance(groups, list):
+            continue
+        for index in reversed(range(len(groups))):
+            group = groups[index]
+            entries = group.get("hooks", [])
+            if not isinstance(entries, list):
+                continue
+            removed = False
+            for entry in reversed(range(len(entries))):
+                if entries[entry].get("name") == "cubicle-telemetry":
+                    del entries[entry]
+                    removed = True
+            if removed and not entries:
+                del groups[index]
+        if not groups:
+            del hooks[event]
 
 def remove_json_settings(settings_path, hook_script):
     if not settings_path.exists():
@@ -364,36 +377,12 @@ def remove_codex_toml(config_path, hook_script):
     if not config_path.exists():
         return
 
-    with open(config_path, "r") as f:
-        lines = f.readlines()
-
-    # Simple heuristic-based filtering for TOML
-    new_lines = []
-    modified = False
-    skip_mode = False
-    
-    for line in lines:
-        if line.startswith("[[hooks.") and "cubicle-telemetry" in "".join(lines[lines.index(line):lines.index(line)+10]):
-            skip_mode = True
-            modified = True
-            continue
-        
-        if skip_mode:
-            if line.startswith("[[hooks.") or line.startswith("[projects.") or line.startswith("[features]"):
-                skip_mode = False
-            else:
-                continue
-                
-        if "cubicle-telemetry" in line:
-            modified = True
-            continue
-
-        new_lines.append(line)
-
-    if modified:
-        content = "".join(new_lines).replace("\n\n\n", "\n\n")
-        with open(config_path, "w") as f:
-            f.write(content)
+    content = config_path.read_text()
+    document = tomlkit.parse(content)
+    _remove_codex_hooks(document)
+    result = tomlkit.dumps(document)
+    if result != content:
+        config_path.write_text(result)
         print(f"Unregistered hooks from {config_path}")
 
 AGENT_HOOKS = {
@@ -542,6 +531,7 @@ Examples:
         "supervisor", help="Start the configured interactive supervisor"
     )
     supervisor_parser.add_argument("--backend", choices=list(LLM_WRAPPERS))
+    supervisor_parser.add_argument("prompt", nargs="?", help="Optional initial message")
 
     subparsers.add_parser("db-init", help="Initialize the Cubicle database schema")
     mcp_parser = subparsers.add_parser("mcp", help="Run the Cubicle MCP server")
@@ -643,13 +633,28 @@ Examples:
         skill = bootstrap.supervisor_skill_path(CUBICLE_HOME)
         prompt = (f"Read and follow the Cubicle supervisor instructions at {resource} "
                   f"and the Cubicle skill at {skill}.")
+        if args.prompt:
+            prompt += f"\n\nUser request: {args.prompt}"
         if backend == "codex":
             options = ["-c", f"mcp_servers.cubicle.command={json.dumps(sys.executable)}",
                        "-c", 'mcp_servers.cubicle.args=["-m", "cubicle.cli", "mcp", "--enable-workers"]',
-                       "-c", f"mcp_servers.cubicle.env.CUBICLE_HOME={json.dumps(str(CUBICLE_HOME))}"]
-            launch_agent(backend, [*options, prompt])
+                       "-c", f"mcp_servers.cubicle.env.CUBICLE_HOME={json.dumps(str(CUBICLE_HOME))}",
+                       "-c", 'mcp_servers.cubicle.env_vars=["CUBICLE_DATABASE_URL", "CUBICLE_SUPERVISOR_ID", "CUBICLE_PYTHON"]']
+            argv = ["--no-daemon", "--dangerously-bypass-approvals-and-sandbox", *options, prompt]
         else:
-            launch_agent(backend, [prompt])
+            argv = ["--dangerously-skip-permissions", prompt]
+        names = {"CUBICLE_SUPERVISOR_ID": str(uuid.uuid4()), "CUBICLE_PYTHON": sys.executable,
+                 "CUBICLE_HOME": str(CUBICLE_HOME)}
+        previous = {name: os.environ.get(name) for name in names}
+        os.environ.update(names)
+        try:
+            launch_agent(backend, argv)
+        finally:
+            for name, value in previous.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
     elif args.command == "db-init":
         from cubicle.store import engine_from_env, initialize_database
         for name, value in load_shared_env().items():
@@ -659,11 +664,21 @@ Examples:
         except (OSError, ValueError) as exc:
             die(str(exc))
         print("Cubicle database initialized")
+        from cubicle.collector import collect_pending
+        failures = collect_pending(CUBICLE_HOME)
+        if failures:
+            print(f"Failed to replay {failures} hook events", file=sys.stderr)
     elif args.command == "mcp":
         for name, value in load_shared_env().items():
             os.environ.setdefault(name, value)
         if args.enable_workers:
             os.environ["CUBICLE_ENABLE_WORKERS"] = "1"
+        from cubicle.collector import collect_pending
+        collect_pending(Path(os.environ.get("CUBICLE_HOME", CUBICLE_HOME)))
+        if args.enable_workers:
+            from cubicle import store, worker
+            worker.recover_pending(store.engine_from_env(),
+                                   Path(os.environ.get("CUBICLE_HOME", CUBICLE_HOME)))
         from cubicle.mcp_server import mcp
         mcp.run(transport=args.transport)
     elif args.command == "set-env":

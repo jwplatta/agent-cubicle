@@ -3,6 +3,37 @@ import pytest
 from cubicle import cli
 
 
+def test_codex_hook_registration_preserves_unrelated_settings(tmp_path):
+    import tomllib
+
+    path = tmp_path / "config.toml"
+    path.write_text('''# Keep this comment
+model = "example"
+[features]
+other = true
+[[hooks.PreToolUse]]
+matcher = "*"
+[[hooks.PreToolUse.hooks]]
+name = "other-hook"
+type = "command"
+command = "echo keep"
+[mcp_servers.example]
+command = "example"
+''')
+    cli.update_codex_toml(path, "/tmp/cubicle-hook.py", ["PreToolUse", "Stop"])
+    cli.update_codex_toml(path, "/tmp/cubicle-hook.py", ["PreToolUse", "Stop"])
+    data = tomllib.loads(path.read_text())
+    assert data["mcp_servers"]["example"]["command"] == "example"
+    assert data["features"]["other"] is True
+    assert sum(h["name"] == "cubicle-telemetry" for group in data["hooks"]["PreToolUse"]
+               for h in group["hooks"]) == 1
+    assert "# Keep this comment" in path.read_text()
+    cli.remove_codex_toml(path, "/tmp/cubicle-hook.py")
+    data = tomllib.loads(path.read_text())
+    assert data["hooks"]["PreToolUse"][0]["hooks"][0]["name"] == "other-hook"
+    assert data["mcp_servers"]["example"]["command"] == "example"
+
+
 def test_main_dispatches_claude_wrapper(monkeypatch):
     calls = []
 
@@ -165,3 +196,18 @@ def test_init_new_config_keeps_legacy_hook_mappings(monkeypatch, tmp_path):
     config = cli.yaml.safe_load((tmp_path / "config.yaml").read_text())
     assert config["supervisor"]["backend"] == "codex"
     assert "codex" in config["agents"]
+
+
+def test_supervisor_forwards_optional_initial_message(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path)
+    calls = []
+    monkeypatch.setattr(cli, "launch_agent", lambda agent, argv: calls.append((agent, argv)))
+    cli.main(["supervisor", "Plan my tasks"])
+    assert "User request: Plan my tasks" in calls[0][1][-1]
+
+
+def test_shared_env_is_private(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path)
+    monkeypatch.setattr(cli, "ENV_FILE", tmp_path / ".env")
+    cli.main(["set-env", "TEST_SECRET", "value"])
+    assert (tmp_path / ".env").stat().st_mode & 0o777 == 0o600

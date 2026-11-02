@@ -19,10 +19,12 @@ def test_completed_worker_spool_can_be_replayed(monkeypatch, tmp_path):
     node = store.add_node(engine, task["id"], "Investigate", "Find cause", [], [], ["report"], ["exists"])
     session = worker.create_session(engine, task["id"], "codex")
     with Session(engine) as db, db.begin():
+        db.get(store.Node, node["id"]).status = "running"
         run = store.Run(node_id=node["id"], worker_session_id=session["id"], result={"cwd": str(tmp_path)})
         db.add(run)
         db.flush()
         run_id = run.id
+        db.get(store.Node, node["id"]).current_run_id = run_id
     (tmp_path / "runs" / run_id).mkdir(parents=True)
 
     def fake_run(args, cwd, stdout, stderr, env, check):
@@ -301,3 +303,71 @@ def test_recover_confirms_cancelled_only_when_group_is_gone(monkeypatch, tmp_pat
     assert worker.recover(engine, tmp_path, run_id)["status"] == "cancelled"
     with Session(engine) as db:
         assert db.get(store.Node, node["id"]).status == "failed"
+
+
+def test_startup_recovery_isolated_per_run(monkeypatch, tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'recovery-scan.db'}")
+    store.initialize_database(engine)
+    task = store.create_task(engine, "Recovery", "Recover pending", "test", "other", ["done"])
+    node = store.add_node(engine, task["id"], "Node", "Check", [], [], ["result"], ["check"])
+    with Session(engine) as db, db.begin():
+        session = store.WorkerSession(task_id=task["id"], backend="codex")
+        db.add(session)
+        db.flush()
+        runs = [store.Run(node_id=node["id"], worker_session_id=session.id, status="running")
+                for _ in range(2)]
+        db.add_all(runs)
+        db.flush()
+        ids = [run.id for run in runs]
+    def recover_one(engine, home, run_id):
+        if run_id == ids[0]:
+            raise OSError("unavailable")
+        return {"run_id": run_id, "status": "unknown"}
+    monkeypatch.setattr(worker, "recover", recover_one)
+    results = worker.recover_pending(engine, tmp_path)
+    assert {result["status"] for result in results} == {"unknown", "recovery_error"}
+
+
+def test_replaying_old_run_does_not_undo_graph_revision(monkeypatch, tmp_path):
+    url = f"sqlite:///{tmp_path / 'revision.db'}"
+    monkeypatch.setenv("CUBICLE_DATABASE_URL", url)
+    monkeypatch.setenv("CUBICLE_HOME", str(tmp_path))
+    engine = create_engine(url)
+    store.initialize_database(engine)
+    task = store.create_task(engine, "T", "O", "P", "other", ["check"])
+    node = store.add_node(engine, task["id"], "N", "O", [], [], ["out"], ["check"])
+    sess = worker.create_session(engine, task["id"], "codex")
+    with Session(engine) as db, db.begin():
+        db.get(store.Node, node["id"]).status = "accepted"
+        run = store.Run(node_id=node["id"], worker_session_id=sess["id"], status="succeeded")
+        db.add(run)
+        db.flush()
+        run_id = run.id
+    directory = tmp_path / "runs" / run_id
+    directory.mkdir(parents=True)
+    (directory / "stdout.jsonl").write_text('{"type":"turn.completed"}\n')
+    (directory / "terminal.json").write_text('{"exit_code":0}')
+    store.revise_node(engine, node["id"], "Review feedback")
+    worker.reconcile(engine, tmp_path, run_id)
+    assert store.graph(engine, task["id"])["nodes"][0]["status"] == "pending"
+
+
+def test_replaying_old_run_does_not_complete_active_retry(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'retry.db'}")
+    store.initialize_database(engine)
+    task = store.create_task(engine, "T", "O", "P", "other", ["check"])
+    node = store.add_node(engine, task["id"], "N", "O", [], [], ["out"], ["check"])
+    sess = worker.create_session(engine, task["id"], "codex")
+    with Session(engine) as db, db.begin():
+        db.get(store.Node, node["id"]).status = "running"
+        old = store.Run(node_id=node["id"], worker_session_id=sess["id"], status="succeeded")
+        current = store.Run(node_id=node["id"], worker_session_id=sess["id"], status="running")
+        db.add_all([old, current])
+        db.flush()
+        old_id = old.id
+    directory = tmp_path / "runs" / old_id
+    directory.mkdir(parents=True)
+    (directory / "stdout.jsonl").write_text('{"type":"turn.completed"}\n')
+    (directory / "terminal.json").write_text('{"exit_code":0}')
+    worker.reconcile(engine, tmp_path, old_id)
+    assert store.graph(engine, task["id"])["nodes"][0]["status"] == "running"
