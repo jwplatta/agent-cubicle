@@ -169,12 +169,13 @@ def create_worker_session(task_id: str, backend: str) -> dict:
 
 
 @mcp.tool()
-def start_node(node_id: str, worker_session_id: str, cwd: str) -> dict:
-    """Start a node on the host; requires local worker execution to be enabled."""
+def start_node(node_id: str, worker_session_id: str, cwd: str,
+               model: str | None = None, max_turns: int | None = None) -> dict:
+    """Start a host worker; optionally select its model and Claude turn limit."""
     if os.environ.get("CUBICLE_ENABLE_WORKERS") != "1":
         raise ValueError("Host worker execution is disabled for this MCP server")
     home = os.environ.get("CUBICLE_HOME", os.path.expanduser("~/.cubicle"))
-    return worker.start(get_engine(), home, node_id, worker_session_id, cwd)
+    return worker.start(get_engine(), home, node_id, worker_session_id, cwd, model, max_turns)
 
 
 @mcp.tool()
@@ -191,7 +192,7 @@ def get_run(run_id: str) -> dict:
     config = Path(os.environ.get("CUBICLE_HOME", os.path.expanduser("~/.cubicle"))) / "config.yaml"
     data = yaml.safe_load(config.read_text()) if config.exists() else {}
     limits = (data or {}).get("limits", {})
-    threshold = limits.get("max_run_seconds")
+    threshold = limits.get("max_run_seconds", 600)
     if threshold is not None and (isinstance(threshold, bool) or
                                   not isinstance(threshold, (int, float)) or threshold <= 0):
         raise ValueError("limits.max_run_seconds must be a positive number or null")

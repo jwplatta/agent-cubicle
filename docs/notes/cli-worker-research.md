@@ -1,5 +1,31 @@
 # CLI worker research
 
+### Local CLI controls and status-line quota — 2026-11-01
+
+The installed Claude Code is 2.1.90. A real no-tools print invocation confirmed its
+hidden `--max-turns 1` flag works; `--forward-subagent-text` was rejected (the current
+reference requires 2.1.211 or later). The current reference documents `claude stop`
+for Claude-managed background sessions, not arbitrary `-p` children. This installed
+version does not list that command or `--bg` in its help, so Cubicle's existing host
+worker should continue using its process-group cancellation until a background adapter
+and its returned background ID are tested. `--environment` targets a self-hosted cloud
+environment (2.1.224+), not a local environment-variable file. `--permission-mode auto`
+is an alternative approval policy, not the bypass previously selected for unattended
+workers. `--advisor` is optional specialization and is not assumed. Model selection,
+stream-json output and resume are supported; Cubicle now passes an optional model and
+defaults Claude node runs to 30 turns, configurable in `limits.claude_max_turns`.
+Source: https://code.claude.com/docs/en/cli-reference
+
+An agy 1.4.12 print-mode probe did not invoke a configured status-line command; an
+interactive session did, and its quota object became populated after a model request.
+Cubicle's agy supervisor now records only quota fractions from that callback and pauses
+agy dispatch at the configured threshold or if the last reading is over five minutes
+old. The check conservatively considers every reported bucket and does not stop an
+already-running worker. Codex's TUI displays usage but exposes no comparable documented
+status-line callback; Codex and Claude account-window gating remain unimplemented.
+Sources: https://antigravity.google/docs/cli/statusline and
+https://learn.chatgpt.com/docs/developer-commands
+
 Checked official documentation 2026-11-01. This is a design inventory, not a test of the user's installed versions or account entitlements. CLI output, hooks, login, quotas and policies can change; record version and verify a minimal local test before relying on any adapter.
 
 ## Codex CLI

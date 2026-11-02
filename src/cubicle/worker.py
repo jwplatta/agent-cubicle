@@ -9,12 +9,13 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import yaml
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
-from cubicle import backlog, bootstrap, store
+from cubicle import backlog, bootstrap, store, usage
 
 
 def create_session(engine, task_id, backend):
@@ -29,10 +30,15 @@ def create_session(engine, task_id, backend):
         return {"id": session.id, "task_id": task_id, "backend": backend}
 
 
-def start(engine, home, node_id, worker_session_id, cwd):
+def start(engine, home, node_id, worker_session_id, cwd, model=None, max_turns=None):
     path = Path(cwd).expanduser().resolve(strict=True)
     if not path.is_dir():
         raise ValueError("Worker cwd must be a directory")
+    if model is not None and (not isinstance(model, str) or not model.strip()):
+        raise ValueError("Model must be a nonempty string")
+    if max_turns is not None and (isinstance(max_turns, bool) or
+                                  not isinstance(max_turns, int) or max_turns < 1):
+        raise ValueError("max_turns must be a positive integer")
     with Session(engine) as db, db.begin():
         initial = db.get(store.WorkerSession, worker_session_id)
         if not initial:
@@ -43,6 +49,16 @@ def start(engine, home, node_id, worker_session_id, cwd):
         node = db.scalar(select(store.Node).where(store.Node.id == node_id).with_for_update())
         if not ws or not node or node.task_id != ws.task_id:
             raise ValueError("Node and worker session must belong to the same task")
+        if ws.backend == "claude" and max_turns is None:
+            config_path = Path(home) / "config.yaml"
+            config = yaml.safe_load(config_path.read_text()) if config_path.exists() else {}
+            max_turns = (config or {}).get("limits", {}).get("claude_max_turns", 30)
+            if isinstance(max_turns, bool) or not isinstance(max_turns, int) or max_turns < 1:
+                raise ValueError("limits.claude_max_turns must be a positive integer")
+        if max_turns is not None and ws.backend != "claude":
+            raise ValueError("max_turns is currently supported only for Claude workers")
+        if ws.backend == "agy":
+            usage.check_agy(home)
         if node.status not in {"pending", "failed"}:
             raise ValueError("Node is already running, awaiting review, or accepted")
         if task.status not in {"ready", "active"}:
@@ -58,7 +74,7 @@ def start(engine, home, node_id, worker_session_id, cwd):
         backlog_ref = task.backlog_ref
         node.status = "running"
         run = store.Run(node_id=node_id, worker_session_id=ws.id, status="starting",
-                        result={"cwd": str(path)})
+                        result={"cwd": str(path), "model": model, "max_turns": max_turns})
         db.add(run)
         db.flush()
         run_id = run.id
@@ -87,18 +103,26 @@ def start(engine, home, node_id, worker_session_id, cwd):
     return result
 
 
-def command(backend, prompt, session_id):
+def command(backend, prompt, session_id, model=None, max_turns=None):
     if backend == "codex":
         args = ["codex", "exec", "--json", "--skip-git-repo-check",
                 "--dangerously-bypass-approvals-and-sandbox"]
+        if model:
+            args += ["--model", model]
         return args + (["resume", session_id, prompt] if session_id else [prompt])
     if backend == "claude":
         args = ["claude", "-p", prompt, "--output-format", "stream-json", "--verbose",
                 "--include-hook-events", "--dangerously-skip-permissions"]
+        if model:
+            args += ["--model", model]
+        if max_turns is not None:
+            args += ["--max-turns", str(max_turns)]
         return args + (["--resume", session_id] if session_id else [])
     if backend == "agy":
         args = ["agy", "-p", prompt, "--output-format", "stream-json",
                 "--dangerously-skip-permissions"]
+        if model:
+            args += ["--model", model]
         return args + (["--conversation", session_id] if session_id else [])
     raise ValueError("Unsupported backend")
 
@@ -126,10 +150,12 @@ def run_worker(run_id):
                       f"Objective: {node.objective}\nInputs: {json.dumps(node.inputs)}\n"
                       f"Scope: {json.dumps(node.scope)}\nOutputs: {json.dumps(node.outputs)}\n"
                       f"Checks: {json.dumps(node.checks)}")
-            args = command(ws.backend, prompt, ws.provider_session_id)
+            args = command(ws.backend, prompt, ws.provider_session_id,
+                           run.result.get("model"), run.result.get("max_turns"))
             run.pid = os.getpid()
             manifest = {"task_id": task.id, "node_id": node.id, "backend": ws.backend,
                         "provider_session_id": ws.provider_session_id, "cwd": cwd,
+                        "model": run.result.get("model"), "max_turns": run.result.get("max_turns"),
                         "skill_path": str(skill), "skill_sha256": skill.parent.name,
                         "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest()}
             run.result = {**run.result, "process_start": process_start(run.pid),

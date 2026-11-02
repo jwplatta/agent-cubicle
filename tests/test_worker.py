@@ -328,6 +328,16 @@ def test_startup_recovery_isolated_per_run(monkeypatch, tmp_path):
     assert {result["status"] for result in results} == {"unknown", "recovery_error"}
 
 
+def test_worker_commands_include_selected_model_and_claude_turn_limit():
+    for backend in ("codex", "claude", "agy"):
+        args = worker.command(backend, "prompt", None, model="chosen-model",
+                              max_turns=7 if backend == "claude" else None)
+        assert args[args.index("--model") + 1] == "chosen-model"
+        if backend == "claude":
+            assert args[args.index("--max-turns") + 1] == "7"
+            assert args[args.index("--output-format") + 1] == "stream-json"
+
+
 def test_get_run_reports_elapsed_time_and_configured_review_threshold(monkeypatch, tmp_path):
     from cubicle import mcp_server
 

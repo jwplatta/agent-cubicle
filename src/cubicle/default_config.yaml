@@ -1,6 +1,8 @@
 limits:
   # Optional elapsed-time review threshold per node run; null disables it.
-  max_run_seconds: null
+  max_run_seconds: 600
+  claude_max_turns: 30
+  agy_max_used_percent: 80
 
 events:
   - session_start

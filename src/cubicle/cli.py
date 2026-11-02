@@ -643,6 +643,11 @@ Examples:
                        "-c", f"mcp_servers.cubicle.env.CUBICLE_HOME={json.dumps(str(CUBICLE_HOME))}",
                        "-c", 'mcp_servers.cubicle.env_vars=["CUBICLE_DATABASE_URL", "CUBICLE_SUPERVISOR_ID", "CUBICLE_PYTHON"]']
             argv = ["--no-daemon", "--dangerously-bypass-approvals-and-sandbox", *options, prompt]
+        elif backend == "agy":
+            status_command = f"{shlex.quote(sys.executable)} -m cubicle.quota_statusline"
+            settings = {"statusLine": {"type": "command", "command": status_command,
+                                       "stack_with_default": True}}
+            argv = ["--dangerously-skip-permissions", "--settings", json.dumps(settings), prompt]
         else:
             argv = ["--dangerously-skip-permissions", prompt]
         names = {"CUBICLE_SUPERVISOR_ID": str(uuid.uuid4()), "CUBICLE_PYTHON": sys.executable,

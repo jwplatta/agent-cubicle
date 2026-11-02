@@ -15,6 +15,8 @@ outputs, scope, checks and dependencies. Prefer a continuing worker session per 
 inspect each node result and evidence before accepting it or advancing the graph.
 Poll active runs with get_run. If elapsed_review_due is true, investigate the run and
 decide whether to wait or request cancellation before dispatching more work for it.
+For Claude nodes, choose an appropriate max_turns when useful; the configured default
+applies otherwise. Choose a model only when the task warrants it and record the choice.
 
 The worker launcher is experimental. Do not claim event coverage, safe cancellation,
 recovery, or PR automation beyond what the available tools actually report. A coding

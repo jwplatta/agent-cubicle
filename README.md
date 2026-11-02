@@ -65,11 +65,20 @@ uses the agent CLI's unattended permission-bypass mode; the node scope is an ins
 not an enforced filesystem boundary. Worker output is stored under `~/.cubicle/runs` and
 reconciled after process completion. Hook records are spooled and retried, and startup
 checks incomplete runs without relaunching them. Unknown outcomes require investigation.
-Graph snapshots and verified merged-branch cleanup are available; usage thresholds and
-reliable termination of independently detached descendants are not yet implemented.
+Graph snapshots and verified merged-branch cleanup are available; reliable termination
+of independently detached descendants is not implemented.
 To ask the supervisor to review long-running nodes, set
 `limits.max_run_seconds` to a positive number in `~/.cubicle/config.yaml`.
 The signal is checked when the supervisor polls a run; it does not stop a worker.
+Claude nodes default to 30 agent turns; set `limits.claude_max_turns` or pass a
+different `max_turns` when starting a node. Specify `model` there when needed.
+An interactive `cubicle supervisor --backend agy` captures quota readings from the
+Antigravity status line. Antigravity worker dispatch pauses when a reported quota
+bucket reaches `limits.agy_max_used_percent` (default 80), or its reading is older
+than five minutes. The status line may need a model request before it has quota data.
+The check is account-wide, conservative across reported buckets, and applies before
+dispatch; it cannot reserve capacity or stop other applications from using the quota.
+Codex account-window gating and Claude subscription-window gating are not implemented.
 Raw prompts and event payloads may contain credentials or other sensitive data and are
 stored in the local spool and database without comprehensive redaction. Restrict access
 to those locations and do not use secrets you cannot safely expose there. Use only for
