@@ -6,6 +6,7 @@ import os
 import signal
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy import select
@@ -138,7 +139,7 @@ def run_worker(run_id):
             proc = subprocess.run(args, cwd=cwd, stdout=out, stderr=err,
                                   env={**os.environ, "CUBICLE_RUN_ID": run_id,
                                        "CUBICLE_PYTHON": sys.executable}, check=False)
-        terminal = {"exit_code": proc.returncode}
+        terminal = {"exit_code": proc.returncode, "finished_at": datetime.now(timezone.utc).isoformat()}
         temp = run_dir / "terminal.tmp"
         temp.write_text(json.dumps(terminal))
         temp.replace(run_dir / "terminal.json")
@@ -297,8 +298,17 @@ def get_run(engine, run_id):
         run = db.get(store.Run, run_id)
         if not run:
             raise ValueError("Run not found")
+        created = run.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        finished_at = (run.result or {}).get("finished_at")
+        end = (datetime.fromisoformat(finished_at) if finished_at else
+               datetime.now(timezone.utc) if run.status in {
+                   "starting", "running", "cancel_requested", "unknown"} else None)
         return {"id": run.id, "node_id": run.node_id, "worker_session_id": run.worker_session_id,
-                "status": run.status, "pid": run.pid, "result": run.result}
+                "status": run.status, "pid": run.pid, "result": run.result,
+                "created_at": created.isoformat(),
+                "elapsed_seconds": max(0, (end - created).total_seconds()) if end else None}
 
 
 def read_events(engine, home, run_id, offset=0, limit=50):

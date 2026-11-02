@@ -67,6 +67,9 @@ reconciled after process completion. Hook records are spooled and retried, and s
 checks incomplete runs without relaunching them. Unknown outcomes require investigation.
 Graph snapshots and verified merged-branch cleanup are available; usage thresholds and
 reliable termination of independently detached descendants are not yet implemented.
+To ask the supervisor to review long-running nodes, set
+`limits.max_run_seconds` to a positive number in `~/.cubicle/config.yaml`.
+The signal is checked when the supervisor polls a run; it does not stop a worker.
 Raw prompts and event payloads may contain credentials or other sensitive data and are
 stored in the local spool and database without comprehensive redaction. Restrict access
 to those locations and do not use secrets you cannot safely expose there. Use only for

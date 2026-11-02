@@ -1,3 +1,7 @@
+limits:
+  # Optional elapsed-time review threshold per node run; null disables it.
+  max_run_seconds: null
+
 events:
   - session_start
   - session_end

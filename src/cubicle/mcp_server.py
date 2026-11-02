@@ -1,6 +1,9 @@
 """Local MCP interface for Cubicle task graphs."""
 
 import os
+from pathlib import Path
+
+import yaml
 
 from mcp.server.fastmcp import FastMCP
 
@@ -184,7 +187,18 @@ def reconcile_run(run_id: str) -> dict:
 @mcp.tool()
 def get_run(run_id: str) -> dict:
     """Get a worker run's status and result metadata."""
-    return worker.get_run(get_engine(), run_id)
+    result = worker.get_run(get_engine(), run_id)
+    config = Path(os.environ.get("CUBICLE_HOME", os.path.expanduser("~/.cubicle"))) / "config.yaml"
+    data = yaml.safe_load(config.read_text()) if config.exists() else {}
+    limits = (data or {}).get("limits", {})
+    threshold = limits.get("max_run_seconds")
+    if threshold is not None and (isinstance(threshold, bool) or
+                                  not isinstance(threshold, (int, float)) or threshold <= 0):
+        raise ValueError("limits.max_run_seconds must be a positive number or null")
+    result["elapsed_review_threshold_seconds"] = threshold
+    result["elapsed_review_due"] = bool(threshold and result["elapsed_seconds"] is not None
+                                        and result["elapsed_seconds"] >= threshold)
+    return result
 
 
 @mcp.tool()

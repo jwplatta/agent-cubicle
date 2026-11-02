@@ -328,6 +328,29 @@ def test_startup_recovery_isolated_per_run(monkeypatch, tmp_path):
     assert {result["status"] for result in results} == {"unknown", "recovery_error"}
 
 
+def test_get_run_reports_elapsed_time_and_configured_review_threshold(monkeypatch, tmp_path):
+    from cubicle import mcp_server
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'elapsed.db'}")
+    store.initialize_database(engine)
+    task = store.create_task(engine, "Time", "Observe duration", "test", "other", ["done"])
+    node = store.add_node(engine, task["id"], "Node", "Check", [], [], ["result"], ["check"])
+    with Session(engine) as db, db.begin():
+        session = store.WorkerSession(task_id=task["id"], backend="codex")
+        db.add(session)
+        db.flush()
+        run = store.Run(node_id=node["id"], worker_session_id=session.id, status="running")
+        db.add(run)
+        db.flush()
+        run_id = run.id
+    (tmp_path / "config.yaml").write_text("limits:\n  max_run_seconds: 0.000001\n")
+    monkeypatch.setenv("CUBICLE_HOME", str(tmp_path))
+    monkeypatch.setattr(mcp_server, "get_engine", lambda: engine)
+    result = mcp_server.get_run(run_id)
+    assert result["elapsed_seconds"] >= 0
+    assert result["elapsed_review_due"] is True
+
+
 def test_replaying_old_run_does_not_undo_graph_revision(monkeypatch, tmp_path):
     url = f"sqlite:///{tmp_path / 'revision.db'}"
     monkeypatch.setenv("CUBICLE_DATABASE_URL", url)
