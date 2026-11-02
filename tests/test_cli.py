@@ -34,6 +34,18 @@ command = "example"
     assert data["mcp_servers"]["example"]["command"] == "example"
 
 
+def test_hook_registration_refuses_invalid_json_without_replacing_it(monkeypatch, tmp_path):
+    path = tmp_path / "settings.json"
+    path.write_text("{invalid")
+    with pytest.raises(ValueError, match="refusing to overwrite"):
+        cli.update_json_settings("claude", path, tmp_path / "hook.py", ["Stop"])
+    assert path.read_text() == "{invalid"
+    monkeypatch.setattr(cli, "AGY_HOOKS_JSON", path)
+    with pytest.raises(ValueError, match="refusing to overwrite"):
+        cli.write_agy_hooks_json(tmp_path / "hook.py", ["Stop"])
+    assert path.read_text() == "{invalid"
+
+
 def test_main_dispatches_claude_wrapper(monkeypatch):
     calls = []
 

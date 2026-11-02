@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import shutil
 import signal
 import subprocess
@@ -140,15 +141,16 @@ def write_agy_hooks_json(hook_script, events):
         with open(hooks_path) as f:
             try:
                 data = json.load(f)
-            except json.JSONDecodeError:
-                data = {}
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid JSON settings; refusing to overwrite {hooks_path}") from exc
     else:
         data = {}
 
     tool_events = {"PreToolUse", "PostToolUse"}
     entry = {}
     for event in events:
-        hook = {"type": "command", "command": f"python3 {hook_script} {event}"}
+        hook = {"type": "command", "command":
+                f"{shlex.quote(sys.executable)} {shlex.quote(str(hook_script))} {shlex.quote(event)}"}
         if event in tool_events:
             entry[event] = [{"matcher": "*", "hooks": [hook]}]
         else:
@@ -215,8 +217,8 @@ def update_json_settings(agent, settings_path, hook_script, events):
         with open(settings_path, "r") as f:
             try:
                 settings = json.load(f)
-            except json.JSONDecodeError:
-                settings = {}
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid JSON settings; refusing to overwrite {settings_path}") from exc
 
     # Agent-specific global enablement
     if agent == "agy":
@@ -255,13 +257,13 @@ def update_json_settings(agent, settings_path, hook_script, events):
                 entry["hooks"] = [
                     h for h in entry["hooks"]
                     if h.get("name") != "cubicle-telemetry"
-                    and ".cubicle/hooks/" not in h.get("command", "")
+                    and str(hook_script) not in h.get("command", "")
                 ]
                 
                 entry["hooks"].append({
                     "name": "cubicle-telemetry",
                     "type": "command",
-                    "command": f"python3 {hook_script}",
+                    "command": f"{shlex.quote(sys.executable)} {shlex.quote(str(hook_script))}",
                     "description": "Cubicle unified agent telemetry"
                 })
                 break
@@ -272,7 +274,7 @@ def update_json_settings(agent, settings_path, hook_script, events):
                 "hooks": [{
                     "name": "cubicle-telemetry",
                     "type": "command",
-                    "command": f"python3 {hook_script}",
+                    "command": f"{shlex.quote(sys.executable)} {shlex.quote(str(hook_script))}",
                     "description": "Cubicle unified agent telemetry"
                 }]
             })
@@ -292,7 +294,7 @@ def update_codex_toml(config_path, hook_script, events):
         group["matcher"] = "*"
         item = tomlkit.table()
         item.update({"name": "cubicle-telemetry", "type": "command",
-                     "command": f"python3 {hook_script}",
+                     "command": f"{shlex.quote(sys.executable)} {shlex.quote(str(hook_script))}",
                      "description": "Cubicle unified agent telemetry"})
         group["hooks"] = tomlkit.aot()
         group["hooks"].append(item)
