@@ -186,6 +186,14 @@ def reconcile_run(run_id: str) -> dict:
 
 
 @mcp.tool()
+def resolve_unknown_run(run_id: str, evidence: str) -> dict:
+    """Record evidence a missing worker stopped and its side effects were reviewed."""
+    if os.environ.get("CUBICLE_ENABLE_WORKERS") != "1":
+        raise ValueError("Host worker access is disabled for this MCP server")
+    return worker.resolve_unknown(get_engine(), run_id, evidence)
+
+
+@mcp.tool()
 def get_run(run_id: str) -> dict:
     """Get a worker run's status and result metadata."""
     result = worker.get_run(get_engine(), run_id)

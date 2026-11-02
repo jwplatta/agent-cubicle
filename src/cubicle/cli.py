@@ -116,6 +116,46 @@ def launch_agent(agent, argv):
     env["CUBICLE_LLM_FAMILY"] = agent
     os.execvpe(executable, [agent, *argv], env)
 
+
+def supervisor_mcp_config():
+    return {"command": sys.executable, "args": ["-m", "cubicle.cli", "mcp", "--enable-workers"],
+            "env": {"CUBICLE_HOME": str(CUBICLE_HOME)}}
+
+
+def register_agy_mcp(path):
+    """Register Cubicle without overwriting unrelated MCP servers or a conflicting name."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        content = path.read_text() if path.exists() else ""
+        data = json.loads(content) if content.strip() else {}
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid Antigravity MCP configuration: {path}") from exc
+    if not isinstance(data, dict) or not isinstance(data.get("mcpServers", {}), dict):
+        raise ValueError("Invalid Antigravity MCP server map")
+    servers = data.setdefault("mcpServers", {})
+    desired = supervisor_mcp_config()
+    if "cubicle" in servers:
+        existing = servers["cubicle"]
+        try:
+            equivalent = (isinstance(existing, dict) and existing.get("args") == desired["args"]
+                          and existing.get("env") == desired["env"]
+                          and os.path.samefile(existing.get("command", ""), desired["command"]))
+        except OSError:
+            equivalent = False
+        if not equivalent:
+            raise ValueError("Antigravity already has a different MCP server named cubicle")
+        return
+    servers["cubicle"] = desired
+    fd, temporary = tempfile.mkstemp(dir=path.parent, prefix=".cubicle-mcp-")
+    try:
+        with os.fdopen(fd, "w") as stream:
+            json.dump(data, stream, indent=2)
+            stream.write("\n")
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
 def ensure_copy(source, target):
     source = Path(source).absolute()
     target = Path(target).absolute()
@@ -404,6 +444,7 @@ def _ensure_resources():
     ensure_copy(PACKAGE_ROOT / "db.py", HOOKS_INSTALL_DIR / "db.py")
     ensure_copy(PACKAGE_ROOT / "hook_errors.py", HOOKS_INSTALL_DIR / "hook_errors.py")
     ensure_copy(PACKAGE_ROOT / "hook_events.py", HOOKS_INSTALL_DIR / "hook_events.py")
+    ensure_copy(PACKAGE_ROOT / "redaction.py", HOOKS_INSTALL_DIR / "redaction.py")
     if not CUBICLE_CONFIG.exists():
         shutil.copy2(DEFAULT_CONFIG, CUBICLE_CONFIG)
         print(f"Initialized event config at {CUBICLE_CONFIG}")
@@ -418,6 +459,9 @@ def init_hooks(agent=None):
         home_dir = get_agent_home(agent)
         cfg = load_config()
         events = list(cfg["agents"][agent]["event_mapping"].keys())
+        for event in ({"agy": ["SessionStart"], "codex": ["Interrupt"]}.get(agent, [])):
+            if event not in events:
+                events.append(event)
 
         if agent == "agy":
             write_agy_hooks_json(hook_script, events)
@@ -644,12 +688,18 @@ Examples:
                        "-c", 'mcp_servers.cubicle.env_vars=["CUBICLE_DATABASE_URL", "CUBICLE_SUPERVISOR_ID", "CUBICLE_PYTHON"]']
             argv = ["--no-daemon", "--dangerously-bypass-approvals-and-sandbox", *options, prompt]
         elif backend == "agy":
+            try:
+                register_agy_mcp(Path.home() / ".gemini" / "config" / "mcp_config.json")
+            except (OSError, ValueError) as exc:
+                die(str(exc))
             status_command = f"{shlex.quote(sys.executable)} -m cubicle.quota_statusline"
             settings = {"statusLine": {"type": "command", "command": status_command,
                                        "stack_with_default": True}}
-            argv = ["--dangerously-skip-permissions", "--settings", json.dumps(settings), prompt]
+            argv = ["--dangerously-skip-permissions", "--settings", json.dumps(settings),
+                    "--prompt-interactive", prompt]
         else:
-            argv = ["--dangerously-skip-permissions", prompt]
+            config = json.dumps({"mcpServers": {"cubicle": supervisor_mcp_config()}})
+            argv = ["--dangerously-skip-permissions", prompt, "--mcp-config", config]
         names = {"CUBICLE_SUPERVISOR_ID": str(uuid.uuid4()), "CUBICLE_PYTHON": sys.executable,
                  "CUBICLE_HOME": str(CUBICLE_HOME)}
         previous = {name: os.environ.get(name) for name in names}

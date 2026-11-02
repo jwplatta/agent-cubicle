@@ -32,13 +32,14 @@ def test_completed_worker_spool_can_be_replayed(monkeypatch, tmp_path):
         db.get(store.Node, node["id"]).current_run_id = run_id
     (tmp_path / "runs" / run_id).mkdir(parents=True)
 
-    def fake_run(args, cwd, stdout, stderr, env, check):
+    def fake_run(args, cwd, run_dir, env):
         assert env["CUBICLE_RUN_ID"] == run_id
-        stdout.write(json.dumps({"type": "thread.started", "thread_id": "provider-1"}) + "\n")
-        stdout.write(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 5}}) + "\n")
-        return SimpleNamespace(returncode=0)
+        (run_dir / "stdout.jsonl").write_text(
+            json.dumps({"type": "thread.started", "thread_id": "provider-1"}) + "\n" +
+            json.dumps({"type": "turn.completed", "usage": {"input_tokens": 5}}) + "\n")
+        return 0
 
-    monkeypatch.setattr(worker.subprocess, "run", fake_run)
+    monkeypatch.setattr(worker, "run_redacted", fake_run)
     monkeypatch.setattr(worker, "process_start", lambda pid: "test-start")
     worker.run_worker(run_id)
     assert worker.reconcile(engine, tmp_path, run_id)["status"] == "succeeded"
@@ -209,13 +210,13 @@ def test_terminal_spool_recovers_after_database_ingestion_failure(monkeypatch, t
         run_id = run.id
     (tmp_path / "runs" / run_id).mkdir(parents=True)
 
-    def fake_run(args, cwd, stdout, stderr, env, check):
-        stdout.write('{"type":"thread.started","thread_id":"saved"}\n')
-        stdout.write('{"type":"turn.completed"}\n')
-        return SimpleNamespace(returncode=0)
+    def fake_run(args, cwd, run_dir, env):
+        (run_dir / "stdout.jsonl").write_text('{"type":"thread.started","thread_id":"saved"}\n'
+                                              '{"type":"turn.completed"}\n')
+        return 0
 
     original = worker.reconcile
-    monkeypatch.setattr(worker.subprocess, "run", fake_run)
+    monkeypatch.setattr(worker, "run_redacted", fake_run)
     monkeypatch.setattr(worker, "process_start", lambda pid: "start")
     monkeypatch.setattr(worker, "reconcile", lambda *args: (_ for _ in ()).throw(RuntimeError("db down")))
     with pytest.raises(RuntimeError, match="db down"):
@@ -331,6 +332,32 @@ def test_startup_recovery_isolated_per_run(monkeypatch, tmp_path):
     monkeypatch.setattr(worker, "recover", recover_one)
     results = worker.recover_pending(engine, tmp_path)
     assert {result["status"] for result in results} == {"unknown", "recovery_error"}
+
+
+def test_unknown_run_resolution_requires_evidence_and_no_live_worker(monkeypatch, tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'resolve.db'}")
+    store.initialize_database(engine)
+    task = store.create_task(engine, "Resolve", "Inspect", "test", "other", ["done"])
+    node = store.add_node(engine, task["id"], "Node", "Check", [], [], ["result"], ["check"])
+    session = worker.create_session(engine, task["id"], "codex")
+    with Session(engine) as db, db.begin():
+        run = store.Run(node_id=node["id"], worker_session_id=session["id"], status="unknown",
+                        pid=1234, result={"process_start": "known"})
+        db.add(run)
+        db.flush()
+        run_id = run.id
+        saved_node = db.get(store.Node, node["id"])
+        saved_node.current_run_id = run_id
+        saved_node.status = "running"
+    with pytest.raises(ValueError, match="Provide evidence"):
+        worker.resolve_unknown(engine, run_id, "")
+    monkeypatch.setattr(worker, "process_start", lambda pid: "known")
+    with pytest.raises(ValueError, match="still running"):
+        worker.resolve_unknown(engine, run_id, "reviewed")
+    monkeypatch.setattr(worker, "process_start", lambda pid: None)
+    assert worker.resolve_unknown(engine, run_id, "Process absent; PR inspected")["status"] == "failed"
+    with Session(engine) as db:
+        assert db.get(store.Node, node["id"]).status == "failed"
 
 
 def test_worker_commands_include_selected_model_and_claude_turn_limit():

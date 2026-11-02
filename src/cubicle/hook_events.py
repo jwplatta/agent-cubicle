@@ -6,6 +6,8 @@ import subprocess
 import uuid
 from pathlib import Path
 
+from redaction import redact
+
 
 def spool_if_managed(event_type, payload):
     run_id = os.environ.get("CUBICLE_RUN_ID")
@@ -27,7 +29,7 @@ def spool_if_managed(event_type, payload):
     try:
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            json.dump({"event_id": event_id, "event_type": event_type, "payload": payload}, stream)
+            json.dump({"event_id": event_id, "event_type": event_type, "payload": redact(payload)}, stream)
             stream.write("\n")
             stream.flush()
             os.fsync(stream.fileno())

@@ -9,7 +9,7 @@ from dotenv import dotenv_values
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
-from cubicle import store
+from cubicle import redaction, store
 
 
 def collect(path):
@@ -26,6 +26,7 @@ def collect(path):
     for key, value in dotenv_values(home / ".env").items():
         if value is not None:
             os.environ.setdefault(key, value)
+    record["payload"] = redaction.redact(record["payload"])
     engine = store.engine_from_env()
     insert = {"postgresql": pg_insert, "sqlite": sqlite_insert}.get(engine.dialect.name)
     if insert is None:

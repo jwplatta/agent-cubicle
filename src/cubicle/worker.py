@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import signal
+import selectors
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -15,7 +16,75 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
-from cubicle import backlog, bootstrap, store, usage
+from cubicle import backlog, bootstrap, redaction, store, usage
+
+
+def run_redacted(args, cwd, run_dir, env):
+    """Stream child output into private files, redacting before writing to disk."""
+    proc = subprocess.Popen(args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            env=env)
+    selector = selectors.DefaultSelector()
+    streams = {}
+    try:
+        for pipe, name in ((proc.stdout, "stdout.jsonl"), (proc.stderr, "stderr.log")):
+            fd = os.open(run_dir / name, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            output = os.fdopen(fd, "w", encoding="utf-8")
+            streams[pipe] = (output, bytearray(), {"private_key": False})
+            selector.register(pipe, selectors.EVENT_READ)
+        while selector.get_map():
+            ready = selector.select(timeout=1)
+            if not ready and proc.poll() is not None:
+                # A detached child may keep a pipe open after the CLI has exited.
+                for output, buffer, state in streams.values():
+                    if buffer and not state["private_key"]:
+                        output.write(redaction.redact_text(buffer.decode("utf-8", errors="replace")))
+                        output.flush()
+                break
+            for key, _ in ready:
+                pipe = key.fileobj
+                output, buffer, state = streams[pipe]
+                chunk = os.read(pipe.fileno(), 65536)
+                if not chunk:
+                    selector.unregister(pipe)
+                buffer.extend(chunk)
+                while b"\n" in buffer:
+                    line, _, tail = buffer.partition(b"\n")
+                    buffer[:] = tail
+                    text = line.decode("utf-8", errors="replace")
+                    if text.lstrip().startswith("-----BEGIN ") and "PRIVATE KEY-----" in text:
+                        state["private_key"] = "-----END " not in text
+                        output.write("[REDACTED PRIVATE KEY]\n")
+                        output.flush()
+                        continue
+                    if state["private_key"]:
+                        if "-----END " in text and "PRIVATE KEY-----" in text:
+                            state["private_key"] = False
+                        continue
+                    try:
+                        text = json.dumps(redaction.redact(json.loads(text)), ensure_ascii=False)
+                    except (ValueError, TypeError):
+                        text = redaction.redact_text(text)
+                    output.write(text + "\n")
+                    output.flush()
+                if not chunk and buffer and not state["private_key"]:
+                    output.write(redaction.redact_text(buffer.decode("utf-8", errors="replace")))
+                    output.flush()
+                    buffer.clear()
+                if len(buffer) > 8 * 1024 * 1024:
+                    raise ValueError("Worker output line exceeded redaction limit")
+        return proc.wait()
+    finally:
+        selector.close()
+        for pipe, (output, _, _) in streams.items():
+            pipe.close()
+            output.close()
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
 
 
 def create_session(engine, task_id, backend):
@@ -161,19 +230,19 @@ def run_worker(run_id):
                         "skill_path": str(skill), "skill_sha256": skill.parent.name,
                         "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest()}
             run.result = {**run.result, "process_start": process_start(run.pid),
-                          "context_manifest": manifest, "prompt": prompt}
+                          "context_manifest": manifest, "prompt": redaction.redact_text(prompt)}
             run.status = "running"
-        with (run_dir / "stdout.jsonl").open("w") as out, (run_dir / "stderr.log").open("w") as err:
-            proc = subprocess.run(args, cwd=cwd, stdout=out, stderr=err,
-                                  env={**os.environ, "CUBICLE_RUN_ID": run_id,
-                                       "CUBICLE_PYTHON": sys.executable}, check=False)
-        terminal = {"exit_code": proc.returncode, "finished_at": datetime.now(timezone.utc).isoformat()}
+        exit_code = run_redacted(args, cwd, run_dir,
+                                 {**os.environ, "CUBICLE_RUN_ID": run_id,
+                                  "CUBICLE_PYTHON": sys.executable})
+        terminal = {"exit_code": exit_code, "finished_at": datetime.now(timezone.utc).isoformat()}
         temp = run_dir / "terminal.tmp"
         temp.write_text(json.dumps(terminal))
         temp.replace(run_dir / "terminal.json")
         reconcile(engine, home, run_id)
     except Exception as exc:
-        (run_dir / "worker-error.log").write_text(f"{type(exc).__name__}: {exc}\n")
+        (run_dir / "worker-error.log").write_text(
+            redaction.redact_text(f"{type(exc).__name__}: {exc}\n"))
         raise
 
 
@@ -194,6 +263,7 @@ def reconcile(engine, home, run_id):
             continue
         if not isinstance(payload, dict):
             continue
+        payload = redaction.redact(payload)
         result = payload.get("result")
         result = result if isinstance(result, dict) else {}
         session_id = (session_id or payload.get("thread_id") or payload.get("session_id")
@@ -208,6 +278,7 @@ def reconcile(engine, home, run_id):
     hooks = []
     for path in sorted((run_dir / "hooks").glob("*.json")):
         hook = json.loads(path.read_text())
+        hook["payload"] = redaction.redact(hook["payload"])
         hooks.append(hook)
     with Session(engine) as db, db.begin():
         initial = db.get(store.Run, run_id)
@@ -319,6 +390,27 @@ def recover_pending(engine, home):
             print(f"Worker recovery failed for {run_id}: {type(exc).__name__}", file=sys.stderr)
             results.append({"run_id": run_id, "status": "recovery_error"})
     return results
+
+
+def resolve_unknown(engine, run_id, evidence):
+    """Record reviewed evidence for an ambiguous run without relaunching it."""
+    if not isinstance(evidence, str) or not evidence.strip():
+        raise ValueError("Provide evidence that the worker stopped and its side effects were reviewed")
+    with Session(engine) as db, db.begin():
+        run = db.scalar(select(store.Run).where(store.Run.id == run_id).with_for_update())
+        if not run or run.status not in {"unknown", "starting"}:
+            raise ValueError("Only an unknown or unresolved starting run can be resolved")
+        if run.pid:
+            current = process_start(run.pid)
+            recorded = (run.result or {}).get("process_start")
+            if current and (not recorded or current == recorded):
+                raise ValueError("Worker process is still running or cannot be identified")
+        run.status = "failed"
+        run.result = {**(run.result or {}), "resolution_evidence": evidence}
+        node = db.get(store.Node, run.node_id)
+        if node.current_run_id == run.id and node.status == "running":
+            node.status = "failed"
+        return {"run_id": run_id, "status": "failed", "resolution_recorded": True}
 
 
 def get_run(engine, run_id):

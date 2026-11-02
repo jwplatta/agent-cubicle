@@ -7,10 +7,11 @@ The goal of Cubicle is to eliminate duplication across different agent setups an
 ## Current Features
 
 ### 1. Unified Telemetry Harness
-A standardized way to capture and normalize usage data across different LLM families, storing everything in a central local SQLite database.
+Cubicle-managed supervisor and worker runs store their events in PostgreSQL. Legacy
+direct CLI wrappers use a separate local SQLite telemetry database.
 
 - **Event Normalization:** Maps agent-specific lifecycle events (e.g., `BeforeTool`, `PreToolUse`) to a consistent standard.
-- **Centralized Storage:** A SQLite database at `~/.cubicle/data/telemetry.db` for easy querying of agent activity.
+- **Centralized Storage:** PostgreSQL for managed runs; `~/.cubicle/data/telemetry.db` for legacy direct launches.
 - **Passive Observation:** Non-blocking hook implementation that doesn't interfere with agent performance.
 
 ## Setup Guide
@@ -50,7 +51,8 @@ versioned supervisor resources under `~/.cubicle`. Existing configuration is pre
 `cubicle supervisor` starts Codex by default; set `supervisor.backend` in
 `~/.cubicle/config.yaml` or pass `--backend claude`, `--backend agy`, or
 `--backend codex` to select a CLI. Codex is given a local Cubicle MCP server;
-other supervisor backends need their MCP configuration set separately.
+Claude receives a per-session MCP configuration, and Antigravity registers the
+Cubicle MCP server in its global MCP configuration without replacing other servers.
 
 Cubicle's initial MCP tools create and inspect shared Markdown backlog items and
 PostgreSQL task graphs, and can start experimental host worker runs. Configure
@@ -83,10 +85,10 @@ and pauses at `limits.codex_max_used_percent` (default 80), or if the reading is
 unavailable. Active-run polls flag a quota threshold or unavailable reading for the
 supervisor to investigate. These checks do not reserve quota or automatically stop
 running workers. Claude subscription-window gating is deferred.
-Raw prompts and event payloads may contain credentials or other sensitive data and are
-stored in the local spool and database without comprehensive redaction. Restrict access
-to those locations and do not use secrets you cannot safely expose there. Use only for
-supervised experiments; do not rely on it for unattended production work.
+New worker output and hook payloads are redacted before spooling and database ingestion
+using pygarble's local secret detector plus known shared-environment secrets. Detection
+is not perfect: transformed or unknown secrets may be missed, existing records are not
+rewritten, and task/backlog text is not automatically sanitized. Keep the data private.
 
 The Compose service runs MCP on loopback port 8765 and connects to the existing PostgreSQL
 instance; set `CUBICLE_DATABASE_URL` with `host.docker.internal` as its host and run
@@ -148,4 +150,5 @@ sqlite3 ~/.cubicle/data/telemetry.db "SELECT timestamp, llm_family, event_type F
 
 ## Notes
 - The hooks are designed to be "fail-safe" and will not block the agent if an error occurs.
-- The raw JSON payload from every event is preserved in the `raw_payload` column for future analysis.
+- Legacy direct launches store redacted payloads in the `raw_payload` column. Managed
+  runs store redacted events in PostgreSQL and per-run spool files.

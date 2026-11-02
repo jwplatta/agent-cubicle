@@ -59,6 +59,24 @@ def init_test_db(db_path, session_ids):
         conn.commit()
 
 
+def test_managed_hook_redacts_secrets_before_spooling(tmp_path):
+    import uuid
+    home = tmp_path / "home"
+    write_config(home)
+    run_id = str(uuid.uuid4())
+    cubicle_home = home / ".cubicle"
+    (cubicle_home / "runs" / run_id).mkdir(parents=True)
+    env = {"CUBICLE_RUN_ID": run_id, "CUBICLE_HOME": str(cubicle_home),
+           "SAMPLE_API_KEY": "synthetic-secret-123456"}
+    _, _, code = run_hook(CODEX_HOOK_PATH,
+                          {"hook_event_name": "PreToolUse", "message": "synthetic-secret-123456"},
+                          home, env=env)
+    assert code == 0
+    paths = list((cubicle_home / "runs" / run_id / "hooks").glob("*.json"))
+    assert len(paths) == 1
+    assert "synthetic-secret-123456" not in paths[0].read_text()
+
+
 def test_agy_hook():
     print("Testing Antigravity hook...")
     home_dir = Path(__file__).resolve().parents[1] / "tmp" / "test_agy_home"

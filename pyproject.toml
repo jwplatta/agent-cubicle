@@ -12,6 +12,7 @@ dependencies = [
   "requests",
   "pyyaml",
   "tomlkit>=0.13,<1",
+  "pygarble>=0.11,<0.12",
   "streamlit>=1.35.0",
   "plotly>=5.22.0",
   "pandas>=2.0.0",

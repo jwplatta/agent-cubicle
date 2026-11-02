@@ -180,6 +180,7 @@ def test_init_preserves_config_and_deploys_versioned_prompt(monkeypatch, tmp_pat
 
 
 def test_supervisor_uses_config_and_explicit_override(monkeypatch, tmp_path):
+    import json
     monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path)
     (tmp_path / "config.yaml").write_text("supervisor:\n  backend: claude\n")
     calls = []
@@ -187,7 +188,25 @@ def test_supervisor_uses_config_and_explicit_override(monkeypatch, tmp_path):
     cli.main(["supervisor"])
     cli.main(["supervisor", "--backend", "codex"])
     assert [call[0] for call in calls] == ["claude", "codex"]
-    assert all("supervisor.md" in call[1][-1] for call in calls)
+    assert all(any("supervisor.md" in arg for arg in call[1]) for call in calls)
+    claude_args = calls[0][1]
+    assert json.loads(claude_args[claude_args.index("--mcp-config") + 1])["mcpServers"]["cubicle"]
+
+
+def test_agy_mcp_registration_preserves_other_servers_and_rejects_conflict(monkeypatch, tmp_path):
+    import json
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path / "home")
+    path = tmp_path / "mcp_config.json"
+    path.write_text(json.dumps({"mcpServers": {"other": {"command": "other"}}}))
+    cli.register_agy_mcp(path)
+    data = json.loads(path.read_text())
+    assert data["mcpServers"]["other"]["command"] == "other"
+    assert data["mcpServers"]["cubicle"] == cli.supervisor_mcp_config()
+    data["mcpServers"]["cubicle"] = {"command": "different"}
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="different MCP server"):
+        cli.register_agy_mcp(path)
+    assert json.loads(path.read_text()) == data
 
 
 def test_supervisor_defaults_to_codex_and_rejects_invalid_config(monkeypatch, tmp_path, capsys):
@@ -200,6 +219,18 @@ def test_supervisor_defaults_to_codex_and_rejects_invalid_config(monkeypatch, tm
     with pytest.raises(SystemExit):
         cli.main(["supervisor"])
     assert "backend must be a string" in capsys.readouterr().err
+
+
+def test_agy_supervisor_uses_interactive_prompt_and_registers_mcp(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path / "home")
+    calls = []
+    registrations = []
+    monkeypatch.setattr(cli, "launch_agent", lambda agent, argv: calls.append((agent, argv)))
+    monkeypatch.setattr(cli, "register_agy_mcp", lambda path: registrations.append(path))
+    cli.main(["supervisor", "--backend", "agy"])
+    assert registrations
+    assert calls[0][0] == "agy"
+    assert "--prompt-interactive" in calls[0][1]
 
 
 def test_init_new_config_keeps_legacy_hook_mappings(monkeypatch, tmp_path):

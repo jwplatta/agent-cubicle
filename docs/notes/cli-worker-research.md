@@ -1,5 +1,26 @@
 # CLI worker research
 
+### Operational verification — 2026-11-01
+
+The interactive Claude and agy supervisors each made a real `list_backlog_items` MCP
+call using the supervisor's server configuration. Claude displayed its one-time
+bypass-mode confirmation for the isolated test directory. A separate real GitHub PR was merged into an isolated test base
+branch; Cubicle verified the merge, deleted the local task branch and completed its
+test task. The temporary remote branches were removed; main was not changed.
+
+A restart probe used Cubicle's worker manager and an isolated PostgreSQL container.
+Two workers were started, the manager was killed, PostgreSQL was interrupted while
+the workers finished, and then restarted. Both terminal markers were replayed into
+PostgreSQL as successful runs. Repeating recovery did not duplicate events. Uncertain
+runs are never automatically relaunched; `resolve_unknown_run` records reviewed
+evidence before reopening the node.
+
+New worker stdout/stderr, prompts in run metadata and hook payloads are redacted before
+durable storage using the open-source pygarble secret detector and known environment
+secret values. This is best effort: redaction cannot prove all secrets are absent, old
+logs remain unchanged, and task/backlog text can contain sensitive information. Source:
+https://github.com/brightertiger/pygarble
+
 ### Practical worker interface — 2026-11-01
 
 The common approach is a bounded node, a per-task reusable provider session, streamed
