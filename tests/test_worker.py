@@ -8,6 +8,11 @@ from sqlalchemy.orm import Session
 from cubicle import store, worker
 
 
+@pytest.fixture(autouse=True)
+def available_codex_quota(monkeypatch):
+    monkeypatch.setattr(worker.usage, "check_codex", lambda home: {"max_used_percent": 20})
+
+
 def test_completed_worker_spool_can_be_replayed(monkeypatch, tmp_path):
     url = f"sqlite:///{tmp_path / 'worker.db'}"
     monkeypatch.setenv("CUBICLE_DATABASE_URL", url)

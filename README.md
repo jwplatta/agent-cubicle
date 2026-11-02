@@ -78,7 +78,11 @@ bucket reaches `limits.agy_max_used_percent` (default 80), or its reading is old
 than five minutes. The status line may need a model request before it has quota data.
 The check is account-wide, conservative across reported buckets, and applies before
 dispatch; it cannot reserve capacity or stop other applications from using the quota.
-Codex account-window gating and Claude subscription-window gating are not implemented.
+Codex worker dispatch checks its current account windows through the Codex app server
+and pauses at `limits.codex_max_used_percent` (default 80), or if the reading is
+unavailable. Active-run polls flag a quota threshold or unavailable reading for the
+supervisor to investigate. These checks do not reserve quota or automatically stop
+running workers. Claude subscription-window gating is deferred.
 Raw prompts and event payloads may contain credentials or other sensitive data and are
 stored in the local spool and database without comprehensive redaction. Restrict access
 to those locations and do not use secrets you cannot safely expose there. Use only for

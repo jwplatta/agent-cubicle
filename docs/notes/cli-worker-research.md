@@ -1,5 +1,31 @@
 # CLI worker research
 
+### Practical worker interface — 2026-11-01
+
+The common approach is a bounded node, a per-task reusable provider session, streamed
+events, and a ten-minute default review signal (`limits.max_run_seconds`); the
+supervisor polls progress and chooses whether to cancel. The review signal is not a
+hard timeout. A requested model can be passed to each backend. Provider options are
+additional capabilities, not assumptions that every backend has the same flags.
+
+| Capability | Codex 0.164.0 | Claude 2.1.90 | agy 1.4.12 |
+| --- | --- | --- | --- |
+| Start / stream | `codex exec --json` | `claude -p --output-format stream-json --verbose` | `agy -p --output-format stream-json` |
+| Continue | `codex exec resume SESSION_ID` | `--resume SESSION_ID` | `--conversation SESSION_ID` |
+| Session identity | `thread.started` supplies a provider UUID; resume accepts UUID or name. No initial ID flag appears in installed `codex exec --help`. | `--session-id UUID` can choose a new ID; `--resume` continues an existing one. Cubicle currently records the returned ID. | `init`/result supplies conversation ID; `--conversation` resumes it. No initial ID flag appears in installed help. |
+| Bound work | No common max-turn flag found in installed help; use the shared review clock. | `--max-turns` works in print mode even though hidden from installed `--help`; Cubicle defaults to 30. | `--print-timeout` is available as an optional hard print-mode limit; Cubicle uses the shared review clock instead. |
+| Other useful options | `--model`, `--output-schema`, `-o` final message, `--cd`, `--add-dir`; `--ephemeral` prevents session reuse. | `--model`, `--json-schema`, `--tools`, `--allowed-tools`, `--disallowed-tools`, `--session-id`; newer versions add `--forward-subagent-text` and managed background commands. | `--model`, `--json-schema`, `--settings`, `--add-dir`, `--print-timeout`; stream-json input can send multiple turns in one process. |
+
+Codex quota: `account/rateLimits/read` on `codex app-server` supplies the account
+windows displayed by Codex. Cubicle reads them before dispatch and blocks at
+`limits.codex_max_used_percent` (default 80), or if unavailable. On this installed
+version, a direct signed-in read succeeded. This is a pre-dispatch guard, not a quota
+reservation or a guarantee that already-running work and other clients stop.
+
+References: https://learn.chatgpt.com/docs/developer-commands?surface=cli ;
+https://learn.chatgpt.com/docs/app-server ; https://code.claude.com/docs/en/cli-reference ;
+https://antigravity.google/docs/cli/reference/ ; https://antigravity.google/docs/cli/headless/ .
+
 ### Local CLI controls and status-line quota — 2026-11-01
 
 The installed Claude Code is 2.1.90. A real no-tools print invocation confirmed its

@@ -7,7 +7,7 @@ import yaml
 
 from mcp.server.fastmcp import FastMCP
 
-from cubicle import backlog, lifecycle, store, worker, workspaces
+from cubicle import backlog, lifecycle, store, usage, worker, workspaces
 
 mcp = FastMCP("Cubicle", host=os.environ.get("CUBICLE_MCP_HOST", "127.0.0.1"),
               port=int(os.environ.get("CUBICLE_MCP_PORT", "8765")))
@@ -199,6 +199,16 @@ def get_run(run_id: str) -> dict:
     result["elapsed_review_threshold_seconds"] = threshold
     result["elapsed_review_due"] = bool(threshold and result["elapsed_seconds"] is not None
                                         and result["elapsed_seconds"] >= threshold)
+    result["usage_review_due"] = False
+    if result["status"] in {"starting", "running", "cancel_requested"}:
+        try:
+            if result["backend"] == "codex":
+                result["usage"] = usage.check_codex(config.parent)
+            elif result["backend"] == "agy":
+                usage.check_agy(config.parent)
+        except ValueError as exc:
+            result["usage_review_due"] = True
+            result["usage_review_reason"] = str(exc)
     return result
 
 

@@ -59,6 +59,8 @@ def start(engine, home, node_id, worker_session_id, cwd, model=None, max_turns=N
             raise ValueError("max_turns is currently supported only for Claude workers")
         if ws.backend == "agy":
             usage.check_agy(home)
+        elif ws.backend == "codex":
+            usage.check_codex(home)
         if node.status not in {"pending", "failed"}:
             raise ValueError("Node is already running, awaiting review, or accepted")
         if task.status not in {"ready", "active"}:
@@ -324,6 +326,7 @@ def get_run(engine, run_id):
         run = db.get(store.Run, run_id)
         if not run:
             raise ValueError("Run not found")
+        session = db.get(store.WorkerSession, run.worker_session_id)
         created = run.created_at
         if created.tzinfo is None:
             created = created.replace(tzinfo=timezone.utc)
@@ -333,6 +336,7 @@ def get_run(engine, run_id):
                    "starting", "running", "cancel_requested", "unknown"} else None)
         return {"id": run.id, "node_id": run.node_id, "worker_session_id": run.worker_session_id,
                 "status": run.status, "pid": run.pid, "result": run.result,
+                "backend": session.backend,
                 "created_at": created.isoformat(),
                 "elapsed_seconds": max(0, (end - created).total_seconds()) if end else None}
 
