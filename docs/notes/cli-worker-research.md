@@ -6,10 +6,11 @@ The interactive Claude and agy supervisors each made a real `list_backlog_items`
 call using the supervisor's server configuration. Claude displayed its one-time
 bypass-mode confirmation for the isolated test directory. A separate real GitHub PR was merged into an isolated test base
 branch; Cubicle verified the merge, deleted the local task branch and completed its
-test task. The temporary remote branches were removed; main was not changed.
+test task using an isolated SQLite fixture. The temporary remote branches were removed;
+main was not changed.
 
-A restart probe used Cubicle's worker manager and an isolated PostgreSQL container.
-Two workers were started, the manager was killed, PostgreSQL was interrupted while
+A restart probe used Cubicle's worker manager, simulated CLI workers, and an isolated
+PostgreSQL container. Two workers were started, the manager was killed, PostgreSQL was interrupted while
 the workers finished, and then restarted. Both terminal markers were replayed into
 PostgreSQL as successful runs. Repeating recovery did not duplicate events. Uncertain
 runs are never automatically relaunched; `resolve_unknown_run` records reviewed
