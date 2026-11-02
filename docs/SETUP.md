@@ -107,6 +107,10 @@ Skip agents you have not installed. These commands copy Cubicle's hook scripts t
 `~/.cubicle/hooks` and register them in the corresponding agent configuration; they
 do not install or authenticate the agent CLIs. Hook failures are reported in
 `~/.cubicle/logs/hooks.log` and on stderr. Provider-specific hook coverage differs.
+Codex requires newly installed or changed hooks to be trusted before they run. Open
+Codex, use `/hooks`, review the Cubicle hook definitions, and trust them. Repeat the
+review when a hook definition changes. Without this step Codex can complete work
+while silently skipping the untrusted hooks.
 
 ## 6. Start the supervisor
 

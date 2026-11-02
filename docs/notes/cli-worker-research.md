@@ -1,5 +1,26 @@
 # CLI worker research
 
+### Integration retest — 2026-11-01
+
+The current 77-test suite passed. A live Codex supervisor used the Cubicle MCP tools
+to create and update a backlog item, create a task and node, and start a worker; that
+worker succeeded with PostgreSQL events. A separate Codex graph probe completed two
+dependent nodes using the same provider session; revising the first reopened both.
+Live worker probes persisted all emitted hook spool records to PostgreSQL: Codex
+8/8, Claude 8/8, and agy 12/12. Stream observations were also recorded. A separate
+Claude `--max-turns 1` probe stopped with `error_max_turns` (the result reported
+`num_turns: 2`); elapsed review and quota threshold behavior are covered by automated
+tests, rather than a full-duration live test.
+
+Initially the Codex worker emitted no hook files: re-registering Cubicle's hook
+definitions had left them pending Codex's hook-trust review. An isolated comparison
+confirmed an untrusted hook was skipped and the same hook ran when trust was bypassed.
+The 12 installed definitions were verified to point to Cubicle's hook script and
+trusted through Codex's hook review UI; the subsequent Codex worker produced 8/8
+persisted hooks. Setup now calls out the trust step. These are observed events in
+bounded probes, not proof of complete coverage for all provider or nested-agent
+operations. Node scope is an instruction, not an enforced security boundary.
+
 ### Operational verification — 2026-11-01
 
 The interactive Claude and agy supervisors each made a real `list_backlog_items` MCP
@@ -70,7 +91,8 @@ Cubicle's agy supervisor now records only quota fractions from that callback and
 agy dispatch at the configured threshold or if the last reading is over five minutes
 old. The check conservatively considers every reported bucket and does not stop an
 already-running worker. Codex's TUI displays usage but exposes no comparable documented
-status-line callback; Codex and Claude account-window gating remain unimplemented.
+status-line callback; this initial finding was superseded by the Codex app-server
+account-window guard described above. Claude account-window gating remains deferred.
 Sources: https://antigravity.google/docs/cli/statusline and
 https://learn.chatgpt.com/docs/developer-commands
 
