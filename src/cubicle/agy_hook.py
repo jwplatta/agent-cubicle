@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 import sys
 import json
+import os
 from pathlib import Path
 
 
 def _load_event_mapping():
     import yaml
 
-    config_path = Path.home() / ".cubicle" / "config.yaml"
+    config_path = Path(os.environ.get("CUBICLE_HOME", Path.home() / ".cubicle")) / "config.yaml"
     with open(config_path) as f:
         cfg = yaml.safe_load(f)
     return cfg["agents"]["agy"]["event_mapping"]
@@ -31,6 +32,8 @@ def _normalize_event(native_event, event_mapping):
     # PreToolUse as the command argument.
     legacy_event_aliases = {"BeforeTool": "PreToolUse", "AfterTool": "PostToolUse"}
     native_event = legacy_event_aliases.get(native_event, native_event)
+    if native_event == "SessionStart" and native_event not in event_mapping:
+        return "session_start"
     return event_mapping.get(
         native_event, native_event.lower() if native_event else "unknown"
     )
@@ -54,6 +57,11 @@ def main():
         event_mapping = _load_event_mapping()
         normalized_event = _normalize_event(native_event, event_mapping)
 
+        from hook_events import spool_if_managed
+
+        if spool_if_managed(normalized_event, payload):
+            return
+
         insert_telemetry(
             session_id=payload.get("conversationId") or payload.get("session_id"),
             event_type=normalized_event,
@@ -61,8 +69,11 @@ def main():
             raw_payload=payload,
         )
 
-    except Exception:
-        pass
+    except Exception as exc:
+        sys.path.insert(0, str(Path(__file__).parent))
+        from hook_errors import report
+
+        report(exc)
     finally:
         # Hooks must always emit valid JSON on stdout. In particular, emitting
         # a PreToolUse decision for PostToolUse makes Antigravity reject hooks.

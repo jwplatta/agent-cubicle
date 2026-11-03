@@ -1,0 +1,35 @@
+services:
+  cubicle-mcp:
+    build: .
+    environment:
+      CUBICLE_DATABASE_URL: ${CUBICLE_DATABASE_URL:-}
+      CUBICLE_MCP_HOST: 0.0.0.0
+      CUBICLE_MCP_PORT: 8765
+      CUBICLE_HOME: /cubicle
+    volumes:
+      - ${HOME}/.cubicle/backlog:/cubicle/backlog
+    ports:
+      - "127.0.0.1:8765:8765"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17
+    profiles: [standalone]
+    environment:
+      POSTGRES_DB: cubicle
+      POSTGRES_USER: cubicle
+      POSTGRES_PASSWORD: ${CUBICLE_STANDALONE_POSTGRES_PASSWORD:-}
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - cubicle_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cubicle -d cubicle"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  cubicle_postgres:

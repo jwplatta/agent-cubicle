@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import json
+import os
 from pathlib import Path
 
 import yaml
@@ -10,7 +11,7 @@ from db import insert_telemetry
 
 
 def _load_event_mapping():
-    config_path = Path.home() / ".cubicle" / "config.yaml"
+    config_path = Path(os.environ.get("CUBICLE_HOME", Path.home() / ".cubicle")) / "config.yaml"
     with open(config_path) as f:
         cfg = yaml.safe_load(f)
     return cfg["agents"]["codex"]["event_mapping"]
@@ -30,6 +31,12 @@ def main():
             native_event, native_event.lower() if native_event else "unknown"
         )
 
+        from hook_events import spool_if_managed
+
+        if spool_if_managed(normalized_event, payload):
+            print(json.dumps({}))
+            return
+
         insert_telemetry(
             session_id=payload.get("session_id"),
             event_type=normalized_event,
@@ -39,8 +46,11 @@ def main():
 
         print(json.dumps({}))
 
-    except Exception:
-        pass
+    except Exception as exc:
+        sys.path.insert(0, str(Path(__file__).parent))
+        from hook_errors import report
+
+        report(exc)
 
 
 if __name__ == "__main__":

@@ -7,16 +7,20 @@ The goal of Cubicle is to eliminate duplication across different agent setups an
 ## Current Features
 
 ### 1. Unified Telemetry Harness
-A standardized way to capture and normalize usage data across different LLM families, storing everything in a central local SQLite database.
+Cubicle-managed supervisor and worker runs store their events in PostgreSQL. Legacy
+direct CLI wrappers use a separate local SQLite telemetry database.
 
 - **Event Normalization:** Maps agent-specific lifecycle events (e.g., `BeforeTool`, `PreToolUse`) to a consistent standard.
-- **Centralized Storage:** A SQLite database at `~/.cubicle/data/telemetry.db` for easy querying of agent activity.
+- **Centralized Storage:** PostgreSQL for managed runs; `~/.cubicle/data/telemetry.db` for legacy direct launches.
 - **Passive Observation:** Non-blocking hook implementation that doesn't interfere with agent performance.
 
 ## Setup Guide
 
+For the full installation, configuration, and first-task walkthrough, see
+**[docs/SETUP.md](docs/SETUP.md)**.
+
 ### 1. Prerequisite
-Ensure you have Python 3.9+ installed on your system.
+Ensure you have Python 3.11+ installed on your system.
 
 ### 2. Local Installation
 Install the Cubicle CLI globally (in editable mode for development):
@@ -43,9 +47,63 @@ cubicle init-hooks --agent codex
 
 This command installs stable hook scripts to `~/.cubicle/hooks/` and automatically registers them in your agent's global settings (e.g., `~/.claude/settings.json`).
 
+### Supervisor (early foundation)
+
+Run `cubicle init` to create the local backlog, context, logs, runs, artifacts, and
+versioned supervisor resources under `~/.cubicle`. Existing configuration is preserved.
+`cubicle supervisor` starts Codex by default; set `supervisor.backend` in
+`~/.cubicle/config.yaml` or pass `--backend claude`, `--backend agy`, or
+`--backend codex` to select a CLI. Codex is given a local Cubicle MCP server;
+Claude receives a per-session MCP configuration, and Antigravity registers the
+Cubicle MCP server in its global MCP configuration without replacing other servers.
+
+Cubicle's initial MCP tools create and inspect shared Markdown backlog items and
+PostgreSQL task graphs, and can start experimental host worker runs. Configure
+`CUBICLE_DATABASE_URL` in the environment or `~/.cubicle/.env` and run
+`cubicle db-init` once. Use a URL such as
+`postgresql+psycopg://USER:PASSWORD@localhost:5432/cubicle`; never commit credentials.
+Use a dedicated database role when available. The schema initializer refuses existing
+unversioned Cubicle tables and migrates supported earlier Cubicle schema versions.
+
+The host stdio server is `cubicle mcp --enable-workers`. Worker dispatch deliberately
+uses the agent CLI's unattended permission-bypass mode; the node scope is an instruction,
+not an enforced filesystem boundary. Worker output is stored under `~/.cubicle/runs` and
+reconciled after process completion. Hook records are spooled and retried, and startup
+checks incomplete runs without relaunching them. Unknown outcomes require investigation.
+Graph snapshots and verified merged-branch cleanup are available; reliable termination
+of independently detached descendants is not implemented.
+To ask the supervisor to review long-running nodes, set
+`limits.max_run_seconds` to a positive number in `~/.cubicle/config.yaml`.
+The signal is checked when the supervisor polls a run; it does not stop a worker.
+Claude nodes default to 30 agent turns; set `limits.claude_max_turns` or pass a
+different `max_turns` when starting a node. Specify `model` there when needed.
+An interactive `cubicle supervisor --backend agy` captures quota readings from the
+Antigravity status line. Antigravity worker dispatch pauses when a reported quota
+bucket reaches `limits.agy_max_used_percent` (default 80), or its reading is older
+than five minutes. The status line may need a model request before it has quota data.
+The check is account-wide, conservative across reported buckets, and applies before
+dispatch; it cannot reserve capacity or stop other applications from using the quota.
+Codex worker dispatch checks its current account windows through the Codex app server
+and pauses at `limits.codex_max_used_percent` (default 80), or if the reading is
+unavailable. Active-run polls flag a quota threshold or unavailable reading for the
+supervisor to investigate. These checks do not reserve quota or automatically stop
+running workers. Claude subscription-window gating is deferred.
+New worker output and hook payloads are redacted before spooling and database ingestion
+using pygarble's local secret detector plus known shared-environment secrets. Detection
+is not perfect: transformed or unknown secrets may be missed, existing records are not
+rewritten, and task/backlog text is not automatically sanitized. Keep the data private.
+
+The Compose service runs MCP on loopback port 8765 and connects to the existing PostgreSQL
+instance; set `CUBICLE_DATABASE_URL` with `host.docker.internal` as its host and run
+`docker compose up -d cubicle-mcp`. Worker launch is disabled in that container: workers
+must run on the host. The HTTP endpoint has no authentication and must remain local. For an isolated alternative, `docker compose --profile standalone up -d postgres`
+starts a separate PostgreSQL on loopback port 55432 with a named volume; set
+`CUBICLE_STANDALONE_POSTGRES_PASSWORD` first. Choose the intended database URL explicitly;
+Compose never starts or modifies quant-infra services.
+
 ### Commands
 
-- `cubicle init-hooks [--agent <name>] [--force]`: Initializes centralized resources and/or registers hooks for an agent. Use `--force` to refresh code and reset the database.
+- `cubicle init-hooks [--agent <name>]`: Initializes centralized resources and/or registers hooks for an agent.
 - `cubicle del-hooks --agent <name>`: Unregisters hooks from the specified agent.
 - `cubicle set-env NAME VALUE`: Stores a shared env var in `~/.cubicle/.env` for Cubicle-launched agents.
 - `cubicle unset-env NAME`: Removes a shared env var from `~/.cubicle/.env`.
@@ -87,7 +145,7 @@ Direct agent launches outside the wrapper are treated as `unknown` unless `CUBIC
 Query the SQLite database at `~/.cubicle/data/telemetry.db`:
 
 ```bash
-sqlite3 ~/.cubicle/data/telemetry.db "SELECT timestamp, llm_family, event_type FROM telemetry ORDER BY id DESC LIMIT 10;"
+sqlite3 ~/.cubicle/data/telemetry.db "SELECT timestamp, session_id, event_type FROM telemetry ORDER BY id DESC LIMIT 10;"
 ```
 
 ## Related Tools
@@ -95,4 +153,5 @@ sqlite3 ~/.cubicle/data/telemetry.db "SELECT timestamp, llm_family, event_type F
 
 ## Notes
 - The hooks are designed to be "fail-safe" and will not block the agent if an error occurs.
-- The raw JSON payload from every event is preserved in the `raw_payload` column for future analysis.
+- Legacy direct launches store redacted payloads in the `raw_payload` column. Managed
+  runs store redacted events in PostgreSQL and per-run spool files.

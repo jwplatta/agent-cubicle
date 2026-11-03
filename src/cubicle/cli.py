@@ -2,14 +2,20 @@ import argparse
 import json
 import os
 import re
+import shlex
 import shutil
 import signal
 import subprocess
 import sys
+import tempfile
+import uuid
 from pathlib import Path
 
 import yaml
+import tomlkit
 from dotenv import dotenv_values
+
+from cubicle import bootstrap
 
 # Try to import tomli/tomllib for TOML handling
 try:
@@ -60,10 +66,18 @@ def load_shared_env():
 
 def write_shared_env(env_vars):
     ensure_cubicle_home()
-    with open(ENV_FILE, "w") as f:
-        for key, value in env_vars.items():
-            encoded = json.dumps(value)
-            f.write(f"{key}={encoded}\n")
+    fd, temporary = tempfile.mkstemp(prefix=".env-", dir=ENV_FILE.parent)
+    try:
+        with os.fdopen(fd, "w") as f:
+            for key, value in env_vars.items():
+                encoded = json.dumps(value)
+                f.write(f"{key}={encoded}\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporary, ENV_FILE)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def set_env_var(name, value):
@@ -96,8 +110,51 @@ def launch_agent(agent, argv):
 
     env = os.environ.copy()
     env.update(load_shared_env())
+    for name in ("CUBICLE_SUPERVISOR_ID", "CUBICLE_PYTHON", "CUBICLE_HOME"):
+        if name in os.environ:
+            env[name] = os.environ[name]
     env["CUBICLE_LLM_FAMILY"] = agent
     os.execvpe(executable, [agent, *argv], env)
+
+
+def supervisor_mcp_config():
+    return {"command": sys.executable, "args": ["-m", "cubicle.cli", "mcp", "--enable-workers"],
+            "env": {"CUBICLE_HOME": str(CUBICLE_HOME)}}
+
+
+def register_agy_mcp(path):
+    """Register Cubicle without overwriting unrelated MCP servers or a conflicting name."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        content = path.read_text() if path.exists() else ""
+        data = json.loads(content) if content.strip() else {}
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid Antigravity MCP configuration: {path}") from exc
+    if not isinstance(data, dict) or not isinstance(data.get("mcpServers", {}), dict):
+        raise ValueError("Invalid Antigravity MCP server map")
+    servers = data.setdefault("mcpServers", {})
+    desired = supervisor_mcp_config()
+    if "cubicle" in servers:
+        existing = servers["cubicle"]
+        try:
+            equivalent = (isinstance(existing, dict) and existing.get("args") == desired["args"]
+                          and existing.get("env") == desired["env"]
+                          and os.path.samefile(existing.get("command", ""), desired["command"]))
+        except OSError:
+            equivalent = False
+        if not equivalent:
+            raise ValueError("Antigravity already has a different MCP server named cubicle")
+        return
+    servers["cubicle"] = desired
+    fd, temporary = tempfile.mkstemp(dir=path.parent, prefix=".cubicle-mcp-")
+    try:
+        with os.fdopen(fd, "w") as stream:
+            json.dump(data, stream, indent=2)
+            stream.write("\n")
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 def ensure_copy(source, target):
     source = Path(source).absolute()
@@ -124,15 +181,16 @@ def write_agy_hooks_json(hook_script, events):
         with open(hooks_path) as f:
             try:
                 data = json.load(f)
-            except json.JSONDecodeError:
-                data = {}
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid JSON settings; refusing to overwrite {hooks_path}") from exc
     else:
         data = {}
 
     tool_events = {"PreToolUse", "PostToolUse"}
     entry = {}
     for event in events:
-        hook = {"type": "command", "command": f"python3 {hook_script} {event}"}
+        hook = {"type": "command", "command":
+                f"{shlex.quote(sys.executable)} {shlex.quote(str(hook_script))} {shlex.quote(event)}"}
         if event in tool_events:
             entry[event] = [{"matcher": "*", "hooks": [hook]}]
         else:
@@ -199,8 +257,8 @@ def update_json_settings(agent, settings_path, hook_script, events):
         with open(settings_path, "r") as f:
             try:
                 settings = json.load(f)
-            except json.JSONDecodeError:
-                settings = {}
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid JSON settings; refusing to overwrite {settings_path}") from exc
 
     # Agent-specific global enablement
     if agent == "agy":
@@ -239,13 +297,13 @@ def update_json_settings(agent, settings_path, hook_script, events):
                 entry["hooks"] = [
                     h for h in entry["hooks"]
                     if h.get("name") != "cubicle-telemetry"
-                    and ".cubicle/hooks/" not in h.get("command", "")
+                    and str(hook_script) not in h.get("command", "")
                 ]
                 
                 entry["hooks"].append({
                     "name": "cubicle-telemetry",
                     "type": "command",
-                    "command": f"python3 {hook_script}",
+                    "command": f"{shlex.quote(sys.executable)} {shlex.quote(str(hook_script))}",
                     "description": "Cubicle unified agent telemetry"
                 })
                 break
@@ -256,7 +314,7 @@ def update_json_settings(agent, settings_path, hook_script, events):
                 "hooks": [{
                     "name": "cubicle-telemetry",
                     "type": "command",
-                    "command": f"python3 {hook_script}",
+                    "command": f"{shlex.quote(sys.executable)} {shlex.quote(str(hook_script))}",
                     "description": "Cubicle unified agent telemetry"
                 }]
             })
@@ -265,46 +323,45 @@ def update_json_settings(agent, settings_path, hook_script, events):
         json.dump(settings, f, indent=2)
 
 def update_codex_toml(config_path, hook_script, events):
-    # Minimal TOML injection
-    if not config_path.exists():
-        content = "[features]\nhooks = true\n\n"
-    else:
-        with open(config_path, "r") as f:
-            content = f.read()
-
-    content = content.replace("codex_hooks = true\n", "")
-    if "hooks = true" not in content:
-        if "[features]" in content:
-            content = content.replace("[features]", "[features]\nhooks = true")
-        else:
-            content = "[features]\nhooks = true\n\n" + content
-
-    # Clean up existing cubicle-telemetry blocks first to avoid duplication/stale paths
-    lines = content.splitlines()
-    new_lines = []
-    skip_mode = False
-    for line in lines:
-        if line.startswith("[[hooks.") and "cubicle-telemetry" in "".join(lines[lines.index(line):lines.index(line)+10]):
-            skip_mode = True
-            continue
-        if skip_mode:
-            if line.startswith("[[hooks.") or line.startswith("[projects.") or line.startswith("[features]"):
-                skip_mode = False
-            else:
-                continue
-        if "cubicle-telemetry" in line:
-            continue
-        new_lines.append(line)
-    
-    content = "\n".join(new_lines)
-
-    # Append fresh blocks
+    document = tomlkit.parse(config_path.read_text() if config_path.exists() else "")
+    _remove_codex_hooks(document)
+    features = document.setdefault("features", tomlkit.table())
+    features["hooks"] = True
+    hooks = document.setdefault("hooks", tomlkit.table())
     for event in events:
-        hook_block = f'\n[[hooks.{event}]]\nmatcher = "*"\n\n[[hooks.{event}.hooks]]\nname = "cubicle-telemetry"\ntype = "command"\ncommand = "python3 {hook_script}"\ndescription = "Cubicle unified agent telemetry"\n'
-        content += hook_block
+        groups = hooks.setdefault(event, tomlkit.aot())
+        group = tomlkit.table()
+        group["matcher"] = "*"
+        item = tomlkit.table()
+        item.update({"name": "cubicle-telemetry", "type": "command",
+                     "command": f"{shlex.quote(sys.executable)} {shlex.quote(str(hook_script))}",
+                     "description": "Cubicle unified agent telemetry"})
+        group["hooks"] = tomlkit.aot()
+        group["hooks"].append(item)
+        groups.append(group)
+    config_path.write_text(tomlkit.dumps(document))
 
-    with open(config_path, "w") as f:
-        f.write(content)
+
+def _remove_codex_hooks(document):
+    hooks = document.get("hooks", {})
+    for event in list(hooks):
+        groups = hooks[event]
+        if not isinstance(groups, list):
+            continue
+        for index in reversed(range(len(groups))):
+            group = groups[index]
+            entries = group.get("hooks", [])
+            if not isinstance(entries, list):
+                continue
+            removed = False
+            for entry in reversed(range(len(entries))):
+                if entries[entry].get("name") == "cubicle-telemetry":
+                    del entries[entry]
+                    removed = True
+            if removed and not entries:
+                del groups[index]
+        if not groups:
+            del hooks[event]
 
 def remove_json_settings(settings_path, hook_script):
     if not settings_path.exists():
@@ -362,36 +419,12 @@ def remove_codex_toml(config_path, hook_script):
     if not config_path.exists():
         return
 
-    with open(config_path, "r") as f:
-        lines = f.readlines()
-
-    # Simple heuristic-based filtering for TOML
-    new_lines = []
-    modified = False
-    skip_mode = False
-    
-    for line in lines:
-        if line.startswith("[[hooks.") and "cubicle-telemetry" in "".join(lines[lines.index(line):lines.index(line)+10]):
-            skip_mode = True
-            modified = True
-            continue
-        
-        if skip_mode:
-            if line.startswith("[[hooks.") or line.startswith("[projects.") or line.startswith("[features]"):
-                skip_mode = False
-            else:
-                continue
-                
-        if "cubicle-telemetry" in line:
-            modified = True
-            continue
-
-        new_lines.append(line)
-
-    if modified:
-        content = "".join(new_lines).replace("\n\n\n", "\n\n")
-        with open(config_path, "w") as f:
-            f.write(content)
+    content = config_path.read_text()
+    document = tomlkit.parse(content)
+    _remove_codex_hooks(document)
+    result = tomlkit.dumps(document)
+    if result != content:
+        config_path.write_text(result)
         print(f"Unregistered hooks from {config_path}")
 
 AGENT_HOOKS = {
@@ -409,8 +442,14 @@ def _ensure_resources():
     for hook_file in set(AGENT_HOOKS.values()):
         ensure_copy(PACKAGE_ROOT / hook_file, HOOKS_INSTALL_DIR / hook_file)
     ensure_copy(PACKAGE_ROOT / "db.py", HOOKS_INSTALL_DIR / "db.py")
-    shutil.copy2(DEFAULT_CONFIG, CUBICLE_CONFIG)
-    print(f"Synced event config to {CUBICLE_CONFIG}")
+    ensure_copy(PACKAGE_ROOT / "hook_errors.py", HOOKS_INSTALL_DIR / "hook_errors.py")
+    ensure_copy(PACKAGE_ROOT / "hook_events.py", HOOKS_INSTALL_DIR / "hook_events.py")
+    ensure_copy(PACKAGE_ROOT / "redaction.py", HOOKS_INSTALL_DIR / "redaction.py")
+    if not CUBICLE_CONFIG.exists():
+        shutil.copy2(DEFAULT_CONFIG, CUBICLE_CONFIG)
+        print(f"Initialized event config at {CUBICLE_CONFIG}")
+    else:
+        print(f"Preserved existing config at {CUBICLE_CONFIG}")
 
 def init_hooks(agent=None):
     _ensure_resources()
@@ -420,6 +459,9 @@ def init_hooks(agent=None):
         home_dir = get_agent_home(agent)
         cfg = load_config()
         events = list(cfg["agents"][agent]["event_mapping"].keys())
+        for event in ({"agy": ["SessionStart"], "codex": ["Interrupt"]}.get(agent, [])):
+            if event not in events:
+                events.append(event)
 
         if agent == "agy":
             write_agy_hooks_json(hook_script, events)
@@ -530,6 +572,18 @@ Examples:
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
     
+    subparsers.add_parser("init", help="Initialize the local Cubicle workspace")
+    supervisor_parser = subparsers.add_parser(
+        "supervisor", help="Start the configured interactive supervisor"
+    )
+    supervisor_parser.add_argument("--backend", choices=list(LLM_WRAPPERS))
+    supervisor_parser.add_argument("prompt", nargs="?", help="Optional initial message")
+
+    subparsers.add_parser("db-init", help="Initialize the Cubicle database schema")
+    mcp_parser = subparsers.add_parser("mcp", help="Run the Cubicle MCP server")
+    mcp_parser.add_argument("--transport", choices=["stdio", "streamable-http"], default="stdio")
+    mcp_parser.add_argument("--enable-workers", action="store_true", help="Allow host worker launches")
+
     # Init hooks command
     init_parser = subparsers.add_parser(
         "init-hooks", 
@@ -608,7 +662,83 @@ Examples:
 
     args = parser.parse_args(argv)
 
-    if args.command == "set-env":
+    if args.command == "init":
+        try:
+            resource = bootstrap.initialize(CUBICLE_HOME)
+        except (OSError, ValueError) as exc:
+            die(str(exc))
+        print(f"Cubicle initialized at {CUBICLE_HOME} (supervisor: {resource})")
+    elif args.command == "supervisor":
+        try:
+            resource = bootstrap.initialize(CUBICLE_HOME)
+            backend = args.backend or bootstrap.supervisor_backend(CUBICLE_HOME)
+        except (OSError, ValueError, yaml.YAMLError) as exc:
+            die(str(exc))
+        if backend not in LLM_WRAPPERS:
+            die(f"Unsupported supervisor backend: {backend}")
+        skill = bootstrap.supervisor_skill_path(CUBICLE_HOME)
+        prompt = (f"Read and follow the Cubicle supervisor instructions at {resource} "
+                  f"and the Cubicle skill at {skill}.")
+        if args.prompt:
+            prompt += f"\n\nUser request: {args.prompt}"
+        if backend == "codex":
+            options = ["-c", f"mcp_servers.cubicle.command={json.dumps(sys.executable)}",
+                       "-c", 'mcp_servers.cubicle.args=["-m", "cubicle.cli", "mcp", "--enable-workers"]',
+                       "-c", f"mcp_servers.cubicle.env.CUBICLE_HOME={json.dumps(str(CUBICLE_HOME))}",
+                       "-c", 'mcp_servers.cubicle.env_vars=["CUBICLE_DATABASE_URL", "CUBICLE_SUPERVISOR_ID", "CUBICLE_PYTHON"]']
+            argv = ["--no-daemon", "--dangerously-bypass-approvals-and-sandbox", *options, prompt]
+        elif backend == "agy":
+            try:
+                register_agy_mcp(Path.home() / ".gemini" / "config" / "mcp_config.json")
+            except (OSError, ValueError) as exc:
+                die(str(exc))
+            status_command = f"{shlex.quote(sys.executable)} -m cubicle.quota_statusline"
+            settings = {"statusLine": {"type": "command", "command": status_command,
+                                       "stack_with_default": True}}
+            argv = ["--dangerously-skip-permissions", "--settings", json.dumps(settings),
+                    "--prompt-interactive", prompt]
+        else:
+            config = json.dumps({"mcpServers": {"cubicle": supervisor_mcp_config()}})
+            argv = ["--dangerously-skip-permissions", prompt, "--mcp-config", config]
+        names = {"CUBICLE_SUPERVISOR_ID": str(uuid.uuid4()), "CUBICLE_PYTHON": sys.executable,
+                 "CUBICLE_HOME": str(CUBICLE_HOME)}
+        previous = {name: os.environ.get(name) for name in names}
+        os.environ.update(names)
+        try:
+            launch_agent(backend, argv)
+        finally:
+            for name, value in previous.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
+    elif args.command == "db-init":
+        from cubicle.store import engine_from_env, initialize_database
+        for name, value in load_shared_env().items():
+            os.environ.setdefault(name, value)
+        try:
+            initialize_database(engine_from_env())
+        except (OSError, ValueError) as exc:
+            die(str(exc))
+        print("Cubicle database initialized")
+        from cubicle.collector import collect_pending
+        failures = collect_pending(CUBICLE_HOME)
+        if failures:
+            print(f"Failed to replay {failures} hook events", file=sys.stderr)
+    elif args.command == "mcp":
+        for name, value in load_shared_env().items():
+            os.environ.setdefault(name, value)
+        if args.enable_workers:
+            os.environ["CUBICLE_ENABLE_WORKERS"] = "1"
+        from cubicle.collector import collect_pending
+        collect_pending(Path(os.environ.get("CUBICLE_HOME", CUBICLE_HOME)))
+        if args.enable_workers:
+            from cubicle import store, worker
+            worker.recover_pending(store.engine_from_env(),
+                                   Path(os.environ.get("CUBICLE_HOME", CUBICLE_HOME)))
+        from cubicle.mcp_server import mcp
+        mcp.run(transport=args.transport)
+    elif args.command == "set-env":
         set_env_var(args.name, args.value)
     elif args.command == "unset-env":
         unset_env_var(args.name)

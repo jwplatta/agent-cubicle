@@ -3,6 +3,49 @@ import pytest
 from cubicle import cli
 
 
+def test_codex_hook_registration_preserves_unrelated_settings(tmp_path):
+    import tomllib
+
+    path = tmp_path / "config.toml"
+    path.write_text('''# Keep this comment
+model = "example"
+[features]
+other = true
+[[hooks.PreToolUse]]
+matcher = "*"
+[[hooks.PreToolUse.hooks]]
+name = "other-hook"
+type = "command"
+command = "echo keep"
+[mcp_servers.example]
+command = "example"
+''')
+    cli.update_codex_toml(path, "/tmp/cubicle-hook.py", ["PreToolUse", "Stop"])
+    cli.update_codex_toml(path, "/tmp/cubicle-hook.py", ["PreToolUse", "Stop"])
+    data = tomllib.loads(path.read_text())
+    assert data["mcp_servers"]["example"]["command"] == "example"
+    assert data["features"]["other"] is True
+    assert sum(h["name"] == "cubicle-telemetry" for group in data["hooks"]["PreToolUse"]
+               for h in group["hooks"]) == 1
+    assert "# Keep this comment" in path.read_text()
+    cli.remove_codex_toml(path, "/tmp/cubicle-hook.py")
+    data = tomllib.loads(path.read_text())
+    assert data["hooks"]["PreToolUse"][0]["hooks"][0]["name"] == "other-hook"
+    assert data["mcp_servers"]["example"]["command"] == "example"
+
+
+def test_hook_registration_refuses_invalid_json_without_replacing_it(monkeypatch, tmp_path):
+    path = tmp_path / "settings.json"
+    path.write_text("{invalid")
+    with pytest.raises(ValueError, match="refusing to overwrite"):
+        cli.update_json_settings("claude", path, tmp_path / "hook.py", ["Stop"])
+    assert path.read_text() == "{invalid"
+    monkeypatch.setattr(cli, "AGY_HOOKS_JSON", path)
+    with pytest.raises(ValueError, match="refusing to overwrite"):
+        cli.write_agy_hooks_json(tmp_path / "hook.py", ["Stop"])
+    assert path.read_text() == "{invalid"
+
+
 def test_main_dispatches_claude_wrapper(monkeypatch):
     calls = []
 
@@ -121,3 +164,93 @@ def test_set_env_rejects_invalid_name(monkeypatch, tmp_path, capsys):
 
     assert excinfo.value.code == 1
     assert "Invalid environment variable name: BAD-NAME" in capsys.readouterr().err
+
+
+def test_init_preserves_config_and_deploys_versioned_prompt(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path)
+    config = tmp_path / "config.yaml"
+    config.write_text("custom: existing\n")
+    cli.main(["init"])
+    cli.main(["init"])
+    assert config.read_text() == "custom: existing\n"
+    assert (tmp_path / "backlog").is_dir()
+    prompts = list((tmp_path / "resources" / "supervisor").glob("*/supervisor.md"))
+    assert len(prompts) == 1
+    assert (prompts[0].parent / "manifest.json").exists()
+
+
+def test_supervisor_uses_config_and_explicit_override(monkeypatch, tmp_path):
+    import json
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path)
+    (tmp_path / "config.yaml").write_text("supervisor:\n  backend: claude\n")
+    calls = []
+    monkeypatch.setattr(cli, "launch_agent", lambda agent, argv: calls.append((agent, argv)))
+    cli.main(["supervisor"])
+    cli.main(["supervisor", "--backend", "codex"])
+    assert [call[0] for call in calls] == ["claude", "codex"]
+    assert all(any("supervisor.md" in arg for arg in call[1]) for call in calls)
+    claude_args = calls[0][1]
+    assert json.loads(claude_args[claude_args.index("--mcp-config") + 1])["mcpServers"]["cubicle"]
+
+
+def test_agy_mcp_registration_preserves_other_servers_and_rejects_conflict(monkeypatch, tmp_path):
+    import json
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path / "home")
+    path = tmp_path / "mcp_config.json"
+    path.write_text(json.dumps({"mcpServers": {"other": {"command": "other"}}}))
+    cli.register_agy_mcp(path)
+    data = json.loads(path.read_text())
+    assert data["mcpServers"]["other"]["command"] == "other"
+    assert data["mcpServers"]["cubicle"] == cli.supervisor_mcp_config()
+    data["mcpServers"]["cubicle"] = {"command": "different"}
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="different MCP server"):
+        cli.register_agy_mcp(path)
+    assert json.loads(path.read_text()) == data
+
+
+def test_supervisor_defaults_to_codex_and_rejects_invalid_config(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path)
+    calls = []
+    monkeypatch.setattr(cli, "launch_agent", lambda agent, argv: calls.append((agent, argv)))
+    cli.main(["supervisor"])
+    assert calls[0][0] == "codex"
+    (tmp_path / "config.yaml").write_text("supervisor:\n  backend: []\n")
+    with pytest.raises(SystemExit):
+        cli.main(["supervisor"])
+    assert "backend must be a string" in capsys.readouterr().err
+
+
+def test_agy_supervisor_uses_interactive_prompt_and_registers_mcp(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path / "home")
+    calls = []
+    registrations = []
+    monkeypatch.setattr(cli, "launch_agent", lambda agent, argv: calls.append((agent, argv)))
+    monkeypatch.setattr(cli, "register_agy_mcp", lambda path: registrations.append(path))
+    cli.main(["supervisor", "--backend", "agy"])
+    assert registrations
+    assert calls[0][0] == "agy"
+    assert "--prompt-interactive" in calls[0][1]
+
+
+def test_init_new_config_keeps_legacy_hook_mappings(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path)
+    cli.main(["init"])
+    config = cli.yaml.safe_load((tmp_path / "config.yaml").read_text())
+    assert config["supervisor"]["backend"] == "codex"
+    assert "codex" in config["agents"]
+
+
+def test_supervisor_forwards_optional_initial_message(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path)
+    calls = []
+    monkeypatch.setattr(cli, "launch_agent", lambda agent, argv: calls.append((agent, argv)))
+    cli.main(["supervisor", "Plan my tasks"])
+    assert "User request: Plan my tasks" in calls[0][1][-1]
+
+
+def test_shared_env_is_private(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "CUBICLE_HOME", tmp_path)
+    monkeypatch.setattr(cli, "ENV_FILE", tmp_path / ".env")
+    cli.main(["set-env", "TEST_SECRET", "value"])
+    assert (tmp_path / ".env").stat().st_mode & 0o777 == 0o600

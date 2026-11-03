@@ -60,11 +60,12 @@ def get_model_for_session(session_id):
 
 def insert_telemetry(session_id, event_type, model, raw_payload):
     """Inserts a telemetry record into the database."""
+    from redaction import redact
     init_db()
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
             "INSERT INTO telemetry (session_id, event_type, model, raw_payload) VALUES (?, ?, ?, ?)",
-            (session_id, event_type, model, json.dumps(raw_payload))
+            (session_id, event_type, model, json.dumps(redact(raw_payload)))
         )
         conn.commit()
 
